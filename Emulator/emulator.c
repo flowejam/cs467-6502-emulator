@@ -4,14 +4,20 @@
 #include <stdint.h>
 
 
-typedef struct ConditionCodes {
-    uint8_t z:1;
-    uint8_t s:1;
-    uint8_t p:1;
-    uint8_t cy:1;
-    uint8_t ac:1;
-    uint8_t pad:3;
-} ConditionCodes;
+// TODO: let's consider moving some of the structs & helper functions to their
+// own files/headers?
+
+typedef struct Flags {
+	// TODO: design struct
+	// 6502 has these flags:
+	// carry
+	// zero
+	// interrupt disable
+	// decimal mode (I don't think this is used in the NES though? Need to check
+	// break command
+	// overflow flag
+	// negative flag
+} Flags;
 
 typedef struct State6502 {
     uint8_t a;
@@ -20,7 +26,7 @@ typedef struct State6502 {
     uint8_t sp;
     uint16_t pc;
     uint8_t *memory;
-    struct ConditionCodes cc;
+    struct Flags flg;
     uint8_t int_enable;
 } State6502;
 
@@ -30,6 +36,9 @@ int Emulate(State6502* state) {
 
     switch (*opcode)
     {
+		// this is a good reference for opcodes: 
+		// https://www.nesdev.org/obelisk-6502-guide/reference.html
+		
         // James implementation
         case 0x00: printf("Not yet implemented\n"); break;
         case 0x01: printf("Not yet implemented\n"); break;
@@ -198,6 +207,70 @@ int Emulate(State6502* state) {
 }
 
 int main(int argc, char* argv[]) {
+	if (argc != 2) {
+		fprintf(stderr, "Usage: %s __ROM_file__\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
 
+	char *fn = argv[1];
+	FILE *fp = fopen(fn); 
+	if (!fp) {
+		fprintf(stderr, "Error in func main: problem opening the ROM file.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	int seek_res = fseek(fp, 0L, SEEK_END);
+	if (seek_res < 0) {
+		fprintf(stderr, "Error in func main: problem encountered when calling fseek.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	long end_offset = ftell(fp);
+	if (end_offset < 0) {
+		fprintf(stderr, "Error in func main: problem encountered when calling ftell.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (end_offset > 0xFFFF) {
+		fprintf(stderr, "Error in func main: file is larger than the addressable space for the 6502.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// seek to the beginning of the file
+	seek_res = fseek(fp, 0L, SEEK_SET);
+
+	// memory map shows it going to 0xFFFF: https://www.nesdev.org/wiki/CPU_memory_map
+	unsigned char *buf = calloc(0xFFFF, 1);
+	if (!buf) {
+		fprintf(stderr, "Error in func main: problem encountered when calling calloc.\n");
+		goto CLEANUP;
+	}
+
+	// the Falling game repo indicates the PRG-ROM layout 
+	// (line 30 of https://github.com/xram64/falling-nes/blob/master/source/falling.asm)
+	// It seems to start at 0x8000, which is consistent with the nesdev memory 
+	// map showing $4000-$FFFF as available for cartridge use.
+	size_t nread = fread(buf+0x8000, 1, end_offset, fp);
+	if (nread != (size_t)end_offset) {
+		fprintf(stderr, "Error in func main: wrong number of bytes read from file.\n");
+		goto CLEANUP;
+	}
+
+	// TODO: initialize State6502  struct.
+	//State6502 state_cpu = {0};
+
+	//while (!state_cpu.exit_prog) {
+	//	// the program counter is advanced in the Emulate function
+	//	int res = Emulate(&state_cpu);
+	//	if (res < 0) {
+	//		goto CLEANUP;
+	//	}
+	//}
+
+	
+CLEANUP:;
+	free(buf);
+	fclose(fp);
+	return EXIT_SUCCESS;
 
 }
