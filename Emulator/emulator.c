@@ -39,13 +39,57 @@ typedef struct State6502 {
     uint8_t sp;
 
     uint16_t pc;
-    uint8_t *memory;
-    struct Flags *flgs;
+    uint8_t* memory;
+    struct Flags* flgs;
 	bool exit_prog;
 } State6502;
 
+// ================== helper functions ======================================
+static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
+	uint16_t stack_addr = state->sp | 0x0100;
+
+	for (int i = 0; i < size; ++i) {
+		// Note that the 6502 doesn't detect stack overflow. I have implemented
+		// it here for debugging purposes.
+		if (stack_addr < 0x0100) {
+			fprintf(stderr, "Error in func push_stack: stack overflow!\n");
+			state->exit_prog = true;
+			return -1;
+		}
+
+		state->memory[stack_addr] = byte_arr[i];
+		--stack_addr;
+	}	
+	state->sp = stack_addr & 0x00FF;
+	return 0;
+}
+
+static int pop_stack(State6502* state, int size) {
+	uint16_t stack_addr = state->sp | 0x0100;
+
+	for (int i = 0; i < size; ++i) {
+		// Note that the 6502 doesn't detect stack underflow. I have implemented
+		// it here for debugging purposes.
+		if (stack_addr > 0x01FF) {
+			fprintf(stderr, "Error in func push_stack: stack underflow!\n");
+			state->exit_prog = true;
+			return -1;
+		}
+		++stack_addr;
+	}
+	state->sp = stack_addr & 0x00FF;
+	return 0;
+}
+// ================== end of helper functions ===============================
+
+// ================== opcode functions ======================================
+static void execute_0x00(State6502* state) {
+	printf("Not yet implemented\n"); 
+}
+// ================== end of opcode functions ===============================
+
 int Emulate(State6502* state) {
-    uint8_t *opcode = &state->memory[state->pc];
+    uint8_t* opcode = &state->memory[state->pc];
     state->pc++;
 
     switch (*opcode)
@@ -54,7 +98,9 @@ int Emulate(State6502* state) {
 		// https://www.nesdev.org/obelisk-6502-guide/reference.html
 		
         // James implementation
-        case 0x00: printf("Not yet implemented\n"); break;
+        case 0x00: 
+			execute_0x00(state);
+			break;
         case 0x01: printf("Not yet implemented\n"); break;
         case 0x05: printf("Not yet implemented\n"); break;
         case 0x06: printf("Not yet implemented\n"); break;
@@ -226,8 +272,8 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	char *fn = argv[1];
-	FILE *fp = fopen(fn, "r"); 
+	char* fn = argv[1];
+	FILE* fp = fopen(fn, "r"); 
 	if (!fp) {
 		fprintf(stderr, "Error in func main: problem opening the ROM file.\n");
 		exit(EXIT_FAILURE);
@@ -254,7 +300,7 @@ int main(int argc, char* argv[]) {
 	seek_res = fseek(fp, 0L, SEEK_SET);
 
 	// memory map shows it going to 0xFFFF: https://www.nesdev.org/wiki/CPU_memory_map
-	unsigned char *buf = calloc(0xFFFF, 1);
+	unsigned char* buf = calloc(0xFFFF, 1);
 	if (!buf) {
 		fprintf(stderr, "Error in func main: problem encountered when calling calloc.\n");
 		goto CLEANUP;
@@ -283,7 +329,7 @@ int main(int argc, char* argv[]) {
 	state_cpu.pc = prg_start;
 	// The stack pointer holds the lower 8 bits of the next free location on 
 	// the stack. This works because the stack is 256 bytes.
-	state_cpu.sp = 0x01FF & 0xFF;
+	state_cpu.sp = 0x01FF & 0x00FF;
 	state_cpu.a = 0;
 	state_cpu.x = 0;
 	state_cpu.y = 0;
