@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-// Source code from the following URL:
+// Source code  for the following disassembler is from the following URL:
 // https://github.com/kpmiller/emulator101/blob/master/6502Disassembler/dis6502.c
 
 static int Disassemble6502Op(unsigned char *codebuffer, int pc)
@@ -168,6 +168,11 @@ case 0xfe: sprintf(opstr, "INC $%02x%02x,X", opcodes[2], opcodes[1]); count = 3;
 		default:
 			sprintf(opstr, ".db $%02x", opcodes[0]); break;
 	}
+
+	// The block of code was commented out below to just be able to print 
+	// out the opcodes for the Falling NES game
+    printf("%02X\n", opcodes[0]);
+    /*
 	printf ("%04X %02X ", 0x5000+pc, opcodes[0]);
 	if (count > 1)
 		printf("%02X ", opcodes[1]);
@@ -192,6 +197,7 @@ case 0xfe: sprintf(opstr, "INC $%02x%02x,X", opcodes[2], opcodes[1]); count = 3;
 			printf("\t\t; $%04x", 0x5000+pc+2+(int8_t)opcodes[1]);
 	}
 	printf("\n");
+    */
 	return count;
 }
 
