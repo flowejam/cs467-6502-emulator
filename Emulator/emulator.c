@@ -258,7 +258,10 @@ int main(int argc, char* argv[]) {
 	// (line 30 of https://github.com/xram64/falling-nes/blob/master/source/falling.asm)
 	// It seems to start at 0x8000, which is consistent with the nesdev memory 
 	// map showing $4000-$FFFF as available for cartridge use.
-	size_t nread = fread(buf+0x8000, 1, end_offset, fp);
+
+	// changing the start to 0x4020 since there was a buffer overflow (ROM is 
+	// too large: ~40k bytes.
+	size_t nread = fread(buf+0x4020, 1, end_offset, fp);
 	if (nread != (size_t)end_offset) {
 		fprintf(stderr, "Error in func main: wrong number of bytes read from file.\n");
 		goto CLEANUP;
@@ -269,7 +272,7 @@ int main(int argc, char* argv[]) {
 	State6502 state_cpu;
 	state_cpu.flgs = &flags; 
 	state_cpu.memory = buf; 
-	state_cpu.pc = 0x8000;
+	state_cpu.pc = 0x4020;
 	// The stack pointer holds the lower 8 bits of the next free location on 
 	// the stack. This works because the stack is 256 bytes.
 	state_cpu.sp = 0x01FF & 0xFF;
