@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 
 // TODO: let's consider moving some of the structs & helper functions to their
@@ -11,12 +12,19 @@ typedef struct Flags {
 	// TODO: design struct
 	// 6502 has these flags:
 	// carry
+	uint8_t crry_flag;
 	// zero
+	uint8_t zro_flag;
 	// interrupt disable
+	uint8_t inter_disable_flag;
 	// decimal mode (I don't think this is used in the NES though? Need to check
+	// n/a
 	// break command
+	uint8_t brk_flag;
 	// overflow flag
+	uint8_t of_flag;
 	// negative flag
+	uint8_t neg_flag;
 } Flags;
 
 typedef struct State6502 {
@@ -26,8 +34,8 @@ typedef struct State6502 {
     uint8_t sp;
     uint16_t pc;
     uint8_t *memory;
-    struct Flags flg;
-    uint8_t int_enable;
+    struct Flags *flgs;
+	bool exit_prog;
 } State6502;
 
 int Emulate(State6502* state) {
@@ -201,9 +209,9 @@ int Emulate(State6502* state) {
         case 0xf9: printf("Not yet implemented\n"); break;
         case 0xfd: printf("Not yet implemented\n"); break;
         case 0xfe: printf("Not yet implemented\n"); break;
-        default: printf("Invalid opcode: %02x\n", opcodes[0]); break;
+        default: printf("Invalid opcode: %02x\n", *opcode); break;
     }
-
+	return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -213,7 +221,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	char *fn = argv[1];
-	FILE *fp = fopen(fn); 
+	FILE *fp = fopen(fn, "r"); 
 	if (!fp) {
 		fprintf(stderr, "Error in func main: problem opening the ROM file.\n");
 		exit(EXIT_FAILURE);
@@ -257,15 +265,26 @@ int main(int argc, char* argv[]) {
 	}
 
 	// TODO: initialize State6502  struct.
-	//State6502 state_cpu = {0};
+	Flags flags = {0};
+	State6502 state_cpu;
+	state_cpu.flgs = &flags; 
+	state_cpu.memory = buf; 
+	state_cpu.pc = 0x8000;
+	// The stack pointer holds the lower 8 bits of the next free location on 
+	// the stack. This works because the stack is 256 bytes.
+	state_cpu.sp = 0x01FF & 0xFF;
+	state_cpu.a = 0;
+	state_cpu.x = 0;
+	state_cpu.y = 0;
+	state_cpu.exit_prog = false;
 
-	//while (!state_cpu.exit_prog) {
-	//	// the program counter is advanced in the Emulate function
-	//	int res = Emulate(&state_cpu);
-	//	if (res < 0) {
-	//		goto CLEANUP;
-	//	}
-	//}
+	while (!state_cpu.exit_prog) {
+		// the program counter is advanced in the Emulate function
+		int res = Emulate(&state_cpu);
+		if (res < 0) {
+			goto CLEANUP;
+		}
+	}
 
 	
 CLEANUP:;
