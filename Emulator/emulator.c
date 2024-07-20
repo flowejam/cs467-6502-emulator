@@ -9,7 +9,7 @@
 // own files/headers?
 
 typedef struct Flags {
-	// TODO: design struct
+	// These flags should be set to either 0x01 or 0x00.
 	// 6502 has these flags:
 	// carry
 	uint8_t crry_flag;
@@ -18,7 +18,7 @@ typedef struct Flags {
 	// interrupt disable
 	uint8_t inter_disable_flag;
 	// decimal mode (I don't think this is used in the NES though? Need to check
-	// n/a
+	uint8_t dec_flag;
 	// break command
 	uint8_t brk_flag;
 	// overflow flag
@@ -31,20 +31,56 @@ typedef struct State6502 {
     uint8_t a;
     uint8_t x;
     uint8_t y;
+
+	// The processor_status register is updated with the update_processor_status
+	// helper function.
+	// This special status register holds the various flag bits: 
+	// 1) none (may be added later)
+	// 2) crry_flag
+	// 3) zro_flag
+	// 4) inter_disable_flag
+	// 5) dec_flag
+	// 6) brk_flag
+	// 7) of_flag
+	// 8) neg_flag
+	uint8_t processor_status;
 	
 	// The stack pointer holds the lower 8 bits of the next free location on 
 	// the stack. This works because the stack is 256 bytes. Note that the
 	// stack pointer should be decremented on push, not incremented. See 
 	// https://www.nesdev.org/obelisk-6502-guide/registers.html for details.
     uint8_t sp;
-
     uint16_t pc;
     uint8_t* memory;
     struct Flags* flgs;
+
 	bool exit_prog;
 } State6502;
 
 // ================== helper functions ======================================
+
+/*
+ * This helper function is used before pushing the processor state register
+ * to the stack. Don't use this helper for any other purpose. E.g. for updating 
+ * the flags, they should be set/cleared as follows:
+ * state->flgs->crry_flag = 0x01;
+ */
+static void update_processor_status(State6502* state) {
+	state->processor_status = 0;
+	state->processor_status |= ( (state->flgs->crry_flag) << 6);
+	state->processor_status |= ( (state->flgs->zro_flag) << 5);
+	state->processor_status |= ( (state->flgs->inter_disable_flag) << 4);
+	state->processor_status |= ( (state->flgs->dec_flag) << 3);
+	state->processor_status |= ( (state->flgs->brk_flag) << 2);
+	state->processor_status |= ( (state->flgs->of_flag) << 1);
+	state->processor_status |= ( (state->flgs->neg_flag) << 0);
+}
+
+/*
+ * 'size' argument should always be 2:
+ * by default, we should only push a word (16 bits) at a time, even
+ * if only 1 byte needs to be pushed.
+ */
 static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 	uint16_t stack_addr = state->sp | 0x0100;
 
@@ -64,7 +100,12 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 	return 0;
 }
 
-static int pop_stack(State6502* state, int size) {
+/*
+ * 'size' argument should always be 2:
+ * by default, we should only pop a word (16 bits) at a time, even
+ * if only 1 byte needs to be popped.
+ */
+static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 	uint16_t stack_addr = state->sp | 0x0100;
 
 	for (int i = 0; i < size; ++i) {
@@ -75,6 +116,7 @@ static int pop_stack(State6502* state, int size) {
 			state->exit_prog = true;
 			return -1;
 		}
+		byte_arr[i] = state->memory[stack_addr];
 		++stack_addr;
 	}
 	state->sp = stack_addr & 0x00FF;
@@ -84,7 +126,33 @@ static int pop_stack(State6502* state, int size) {
 
 // ================== opcode functions ======================================
 static void execute_0x00(State6502* state) {
-	printf("Not yet implemented\n"); 
+	fprintf(stdout, "Executing opcode 0x00: BRK\n");
+	
+	// push the program counter to the stack
+	// little endian - addresses stored in memory with LSB first
+	unsigned char pc_bytes[] = {state->pc & 0x00FF, (state->pc) >> 8};
+	int size = sizeof(pc_bytes);
+	int push_result = push_stack(state, size, pc_bytes);
+	if (push_result < 0) {
+		// error in call to push_stack
+		return;
+	}
+
+	// push the processor status to the stack
+	update_processor_status(state);
+	// size is 2 because by default a full word (16 bits) should be pushed at
+	// a time.
+	size = 2;
+	unsigned char processor_status_bytes[] = {state->processor_status, 0x00};
+	push_result = push_stack(state, size, processor_status_bytes); 
+	if (push_result < 0) {
+		// error in call to push_stack
+		return;
+	}
+
+	// load the BRK/interrupt request handler into the program counter
+	// TODO
+	
 }
 // ================== end of opcode functions ===============================
 
