@@ -32,17 +32,20 @@ typedef struct State6502 {
     uint8_t x;
     uint8_t y;
 
+	// Refer to https://www.nesdev.org/wiki/Status_flags for details of the 
+	// architectural 'P' register, which we refer to here as 'processor_status'.
 	// The processor_status register is updated with the update_processor_status
 	// helper function.
 	// This special status register holds the various flag bits: 
-	// 1) none (may be added later)
-	// 2) crry_flag
-	// 3) zro_flag
-	// 4) inter_disable_flag
-	// 5) dec_flag
-	// 6) brk_flag
-	// 7) of_flag
-	// 8) neg_flag
+	// Bit #:
+	// 0) crry_flag
+	// 1) zro_flag
+	// 2) inter_disable_flag
+	// 3) dec_flag
+	// 4) brk_flag
+	// 5) (no CPU effect, always pushed as 1)
+	// 6) of_flag
+	// 7) neg_flag
 	uint8_t processor_status;
 	
 	// The stack pointer holds the lower 8 bits of the next free location on 
@@ -54,6 +57,7 @@ typedef struct State6502 {
     uint8_t* memory;
     struct Flags* flgs;
 
+	// This is not part of the 6502 CPU. It is just a flag used to exit the program. 
 	bool exit_prog;
 } State6502;
 
@@ -66,17 +70,22 @@ typedef struct State6502 {
  * state->flgs->crry_flag = 0x01;
  */
 static void update_processor_status(State6502* state) {
-	state->processor_status = 0;
-	state->processor_status |= ( (state->flgs->crry_flag) << 6);
-	state->processor_status |= ( (state->flgs->zro_flag) << 5);
-	state->processor_status |= ( (state->flgs->inter_disable_flag) << 4);
+	// As per https://www.nesdev.org/wiki/Status_flags, bit #5 is always set.
+	// It 'has no CPU effect'.
+	state->processor_status = 0x20;
+
+	state->processor_status |= ( (state->flgs->crry_flag) << 0);
+	state->processor_status |= ( (state->flgs->zro_flag) << 1);
+	state->processor_status |= ( (state->flgs->inter_disable_flag) << 2);
 	state->processor_status |= ( (state->flgs->dec_flag) << 3);
-	state->processor_status |= ( (state->flgs->brk_flag) << 2);
-	state->processor_status |= ( (state->flgs->of_flag) << 1);
-	state->processor_status |= ( (state->flgs->neg_flag) << 0);
+	state->processor_status |= ( (state->flgs->brk_flag) << 4);
+	state->processor_status |= ( (state->flgs->of_flag) << 6);
+	state->processor_status |= ( (state->flgs->neg_flag) << 7);
 }
 
 /*
+ * Assumes bytes are pushed in little endian order. I.e. LSB is pushed first, 
+ * so that the MSB is popped first.
  * 'size' argument should always be 2:
  * by default, we should only push a word (16 bits) at a time, even
  * if only 1 byte needs to be pushed.
@@ -101,6 +110,8 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 }
 
 /*
+ * Assumes bytes are pushed in little endian order. I.e. LSB is pushed first, 
+ * so that the MSB is popped first.
  * 'size' argument should always be 2:
  * by default, we should only pop a word (16 bits) at a time, even
  * if only 1 byte needs to be popped.
@@ -150,8 +161,16 @@ static void execute_0x00(State6502* state) {
 		return;
 	}
 
-	// load the BRK/interrupt request handler into the program counter
+	// load the BRK/IRQ vector into the program counter
 	// TODO
+	state->pc = (state->memory[0xFFFF] << 8) | (state->memory[0xFFFE]);
+
+	// set the break flag
+	state->flgs->brk_flag = 0x01;
+
+	// also set the interrupt disable flag as per 
+	// https://www.nesdev.org/wiki/Status_flags#I:_Interrupt_Disable
+	state->flgs->inter_disable_flag = 0x01;
 	
 }
 // ================== end of opcode functions ===============================
@@ -391,6 +410,11 @@ int main(int argc, char* argv[]) {
 
 	// TODO: initialize State6502  struct.
 	Flags flags = {0};
+	
+	// As per https://www.nesdev.org/wiki/CPU_power_up_state, the interrupt
+	// disable flag is set and all other flags are cleared at power up.
+	flags.inter_disable_flag = 0x01;
+
 	State6502 state_cpu;
 	state_cpu.flgs = &flags; 
 	state_cpu.memory = buf; 
