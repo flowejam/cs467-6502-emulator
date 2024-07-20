@@ -4,7 +4,7 @@ FLAGS += -pedantic-errors
 FLAGS += -Wall
 FLAGS += -Wextra
 FLAGS += -Werror=vla
-FLAGS += -Werror
+#FLAGS += -Werror
 FLAGS += -O0
 
 COMM := gcc $(FLAGS)
