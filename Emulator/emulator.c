@@ -31,7 +31,13 @@ typedef struct State6502 {
     uint8_t a;
     uint8_t x;
     uint8_t y;
+	
+	// The stack pointer holds the lower 8 bits of the next free location on 
+	// the stack. This works because the stack is 256 bytes. Note that the
+	// stack pointer should be decremented on push, not incremented. See 
+	// https://www.nesdev.org/obelisk-6502-guide/registers.html for details.
     uint8_t sp;
+
     uint16_t pc;
     uint8_t *memory;
     struct Flags *flgs;
