@@ -5,8 +5,8 @@
 #include <stdbool.h>
 
 
-// TODO: let's consider moving some of the structs & helper functions to their
-// own files/headers?
+// TODO: let's consider adding/extern-ing some of the structs & helper functions to a 
+// header file to enable having tests in a separate file. 
 
 typedef struct Flags {
 	// These flags should be set to either 0x01 or 0x00.
@@ -84,8 +84,9 @@ static void update_processor_status(State6502* state) {
 }
 
 /*
- * Assumes bytes are pushed in little endian order. I.e. LSB is pushed first, 
- * so that the MSB is popped first.
+ * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
+ * stored in the stack will then be in little endian order.
+ * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only push a word (16 bits) at a time, even
  * if only 1 byte needs to be pushed.
@@ -110,8 +111,9 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 }
 
 /*
- * Assumes bytes are pushed in little endian order. I.e. LSB is pushed first, 
- * so that the MSB is popped first.
+ * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
+ * stored in the stack will then be in little endian order.
+ * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only pop a word (16 bits) at a time, even
  * if only 1 byte needs to be popped.
@@ -137,11 +139,17 @@ static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 
 // ================== opcode functions ======================================
 static void execute_0x00(State6502* state) {
+	// more details on the BRK instruction can be found here: 
+	// http://www.6502.org/tutorials/interrupts.html#2.2
+	
 	fprintf(stdout, "Executing opcode 0x00: BRK\n");
 	
 	// push the program counter to the stack
+	// according to https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors,
+	// 2 is added to the program counter prior to pushing to the stack.
 	// little endian - addresses stored in memory with LSB first
-	unsigned char pc_bytes[] = {state->pc & 0x00FF, (state->pc) >> 8};
+	uint16_t tmp_pc = state->pc + 2;
+	unsigned char pc_bytes[] = {tmp_pc >> 8, tmp_pc & 0x00FF};
 	int size = sizeof(pc_bytes);
 	int push_result = push_stack(state, size, pc_bytes);
 	if (push_result < 0) {
@@ -154,23 +162,28 @@ static void execute_0x00(State6502* state) {
 	// size is 2 because by default a full word (16 bits) should be pushed at
 	// a time.
 	size = 2;
-	unsigned char processor_status_bytes[] = {state->processor_status, 0x00};
+	unsigned char processor_status_bytes[] = {0x00, state->processor_status};
 	push_result = push_stack(state, size, processor_status_bytes); 
 	if (push_result < 0) {
 		// error in call to push_stack
 		return;
 	}
 
-	// load the BRK/IRQ vector into the program counter
-	// TODO
+	// load the BRK/IRQ vector into the program counter.
+	// I don't see anything re. an initial value for 0xFFFE-0xFFFF on power up:
+	// https://www.nesdev.org/wiki/CPU_power_up_state
 	state->pc = (state->memory[0xFFFF] << 8) | (state->memory[0xFFFE]);
 
 	// set the break flag
 	state->flgs->brk_flag = 0x01;
 
 	// also set the interrupt disable flag as per 
-	// https://www.nesdev.org/wiki/Status_flags#I:_Interrupt_Disable
+	// http://www.6502.org/tutorials/interrupts.html#2.2
 	state->flgs->inter_disable_flag = 0x01;
+
+	// TODO: re-examine this
+	// We made a decision to exit the program if an interrupt is encountered.
+	state->exit_prog = true;
 	
 }
 
@@ -820,15 +833,20 @@ static void execute_0x86(State6502* state) {
 
 int Emulate(State6502* state) {
     uint8_t* opcode = &state->memory[state->pc];
-    state->pc++;
 
     switch (*opcode)
     {
 		// this is a good reference for opcodes: 
 		// https://www.nesdev.org/obelisk-6502-guide/reference.html
+		// Note that emulator101 is incorrect about some flags that are set (e.g.,
+		// opcode 0x00 or BRK is supposed to set the B flag but it doesn't mention
+		// this), so use with caution.
 		
         // James implementation
         case 0x00: 
+			// Note: until other opcodes have been properly implemented, 0x00
+			// read from what should be part of an immediate value or address
+			// etc. will be interpreted as BRK (opcode 0). 
 			execute_0x00(state);
 			break;
         case 0x01: printf("Not yet implemented\n"); break;
@@ -1043,6 +1061,19 @@ int Emulate(State6502* state) {
         case 0xfe: printf("Not yet implemented\n"); break;
         default: printf("Invalid opcode: %02x\n", *opcode); break;
     }
+	
+	// If pc is 0xFFFF at this point, an increment will cause an overflow, 
+	// and pc will be set to 0x0000, which we may not want. For now,
+	// we get the program to exit in this case.
+	if (state->pc == 0xFFFF) {
+		state->exit_prog = true;
+	}
+
+	// To get the opcode.
+	// PC shouldn't be modified before the instruction is executed so that
+	// the current value can be obtained/pushed to the stack etc. by the 
+	// instruction that was executed.
+    state->pc++;
 	return 0;
 }
 
@@ -1078,25 +1109,42 @@ int main(int argc, char* argv[]) {
 
 	// seek to the beginning of the file
 	seek_res = fseek(fp, 0L, SEEK_SET);
+	if (seek_res < 0) {
+		fprintf(stderr, "Error in func main: problem encountered when calling fseek.\n");
+		exit(EXIT_FAILURE);
+	}
 
-	// memory map shows it going to 0xFFFF: https://www.nesdev.org/wiki/CPU_memory_map
-	unsigned char* buf = calloc(0xFFFF, 1);
+	// Memory map shows it going to 0xFFFF: https://www.nesdev.org/wiki/CPU_memory_map
+	// Because of buffer overflow issues, extra memory is allocated here.
+	// It is unclear why the ROM file takes up more space than (0xFFFF - 0x8000) bytes.
+	unsigned char* buf = calloc(0xFFFF+end_offset, 1);
 	if (!buf) {
 		fprintf(stderr, "Error in func main: problem encountered when calling calloc.\n");
 		goto CLEANUP;
 	}
 
-	// the Falling game repo indicates the PRG-ROM layout 
+	// The Falling game repo indicates the PRG-ROM layout 
 	// (line 30 of https://github.com/xram64/falling-nes/blob/master/source/falling.asm)
 	// It seems to start at 0x8000, which is consistent with the nesdev memory 
 	// map showing $4000-$FFFF as available for cartridge use.
-
-	// changing the start (prg_start) to 0x4020 since there was a buffer overflow (ROM is 
-	// too large: ~40k bytes.
 	
-	uint16_t prg_start = 0x4020;
-	size_t nread = fread(buf+prg_start, 1, end_offset, fp);
-	if (nread != (size_t)end_offset) {
+	// The bytes from the ROM that should be copied to memory start after the 
+	// 16 byte header of the iNES format (for .nes files), and a 'trainer' if it is present
+	// (there is no indication of a 'trainer' being present for the 'Falling'
+	// game.
+	// See this reference: https://www.nesdev.org/wiki/INES
+	long prg_length = end_offset - 16;
+	// Seek past the iNES header.
+	seek_res = fseek(fp, 16L, SEEK_SET);
+	if (seek_res < 0) {
+		fprintf(stderr, "Error in func main: problem encountered when calling fseek.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	uint16_t prg_start = 0x8000;
+
+	size_t nread = fread(buf+prg_start, 1, (size_t)prg_length, fp);
+	if (nread != (size_t)prg_length) {
 		fprintf(stderr, "Error in func main: wrong number of bytes read from file.\n");
 		goto CLEANUP;
 	}
@@ -1125,11 +1173,6 @@ int main(int argc, char* argv[]) {
 		int res = Emulate(&state_cpu);
 		if (res < 0) {
 			goto CLEANUP;
-		}
-
-		// consider editing this stop condition
-		if (state_cpu.pc > (prg_start + end_offset)) {
-			state_cpu.exit_prog = true;
 		}
 	}
 
