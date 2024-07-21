@@ -139,6 +139,9 @@ static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 
 // ================== opcode functions ======================================
 static void execute_0x00(State6502* state) {
+	// more details on the BRK instruction can be found here: 
+	// http://www.6502.org/tutorials/interrupts.html#2.2
+	
 	fprintf(stdout, "Executing opcode 0x00: BRK\n");
 	
 	// push the program counter to the stack
@@ -175,8 +178,12 @@ static void execute_0x00(State6502* state) {
 	state->flgs->brk_flag = 0x01;
 
 	// also set the interrupt disable flag as per 
-	// https://www.nesdev.org/wiki/Status_flags#I:_Interrupt_Disable
+	// http://www.6502.org/tutorials/interrupts.html#2.2
 	state->flgs->inter_disable_flag = 0x01;
+
+	// TODO: re-examine this
+	// We made a decision to exit the program if an interrupt is encountered.
+	state->exit_prog = true;
 	
 }
 // ================== end of opcode functions ===============================
@@ -188,9 +195,15 @@ int Emulate(State6502* state) {
     {
 		// this is a good reference for opcodes: 
 		// https://www.nesdev.org/obelisk-6502-guide/reference.html
+		// Note that emulator101 is incorrect about some flags that are set (e.g.,
+		// opcode 0x00 or BRK is supposed to set the B flag but it doesn't mention
+		// this), so use with caution.
 		
         // James implementation
         case 0x00: 
+			// Note: until other opcodes have been properly implemented, 0x00
+			// read from what should be part of an immediate value or address
+			// etc. will be interpreted as BRK (opcode 0). 
 			execute_0x00(state);
 			break;
         case 0x01: printf("Not yet implemented\n"); break;
@@ -355,6 +368,14 @@ int Emulate(State6502* state) {
         case 0xfe: printf("Not yet implemented\n"); break;
         default: printf("Invalid opcode: %02x\n", *opcode); break;
     }
+	
+	// If pc is 0xFFFF at this point, an increment will cause an overflow, 
+	// and pc will be set to 0x0000, which we may not want. For now,
+	// we get the program to exit in this case.
+	if (state->pc == 0xFFFF) {
+		state->exit_prog = true;
+	}
+
 	// To get the opcode.
 	// PC shouldn't be modified before the instruction is executed so that
 	// the current value can be obtained/pushed to the stack etc. by the 
@@ -395,25 +416,42 @@ int main(int argc, char* argv[]) {
 
 	// seek to the beginning of the file
 	seek_res = fseek(fp, 0L, SEEK_SET);
+	if (seek_res < 0) {
+		fprintf(stderr, "Error in func main: problem encountered when calling fseek.\n");
+		exit(EXIT_FAILURE);
+	}
 
-	// memory map shows it going to 0xFFFF: https://www.nesdev.org/wiki/CPU_memory_map
-	unsigned char* buf = calloc(0xFFFF, 1);
+	// Memory map shows it going to 0xFFFF: https://www.nesdev.org/wiki/CPU_memory_map
+	// Because of buffer overflow issues, extra memory is allocated here.
+	// It is unclear why the ROM file takes up more space than (0xFFFF - 0x8000) bytes.
+	unsigned char* buf = calloc(0xFFFF+end_offset, 1);
 	if (!buf) {
 		fprintf(stderr, "Error in func main: problem encountered when calling calloc.\n");
 		goto CLEANUP;
 	}
 
-	// the Falling game repo indicates the PRG-ROM layout 
+	// The Falling game repo indicates the PRG-ROM layout 
 	// (line 30 of https://github.com/xram64/falling-nes/blob/master/source/falling.asm)
 	// It seems to start at 0x8000, which is consistent with the nesdev memory 
 	// map showing $4000-$FFFF as available for cartridge use.
-
-	// changing the start (prg_start) to 0x4020 since there was a buffer overflow (ROM is 
-	// too large: ~40k bytes.
 	
-	uint16_t prg_start = 0x4020;
-	size_t nread = fread(buf+prg_start, 1, end_offset, fp);
-	if (nread != (size_t)end_offset) {
+	// The bytes from the ROM that should be copied to memory start after the 
+	// 16 byte header of the iNES format (for .nes files), and a 'trainer' if it is present
+	// (there is no indication of a 'trainer' being present for the 'Falling'
+	// game.
+	// See this reference: https://www.nesdev.org/wiki/INES
+	long prg_length = end_offset - 16;
+	// Seek past the iNES header.
+	seek_res = fseek(fp, 16L, SEEK_SET);
+	if (seek_res < 0) {
+		fprintf(stderr, "Error in func main: problem encountered when calling fseek.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	uint16_t prg_start = 0x8000;
+
+	size_t nread = fread(buf+prg_start, 1, (size_t)prg_length, fp);
+	if (nread != (size_t)prg_length) {
 		fprintf(stderr, "Error in func main: wrong number of bytes read from file.\n");
 		goto CLEANUP;
 	}
@@ -442,11 +480,6 @@ int main(int argc, char* argv[]) {
 		int res = Emulate(&state_cpu);
 		if (res < 0) {
 			goto CLEANUP;
-		}
-
-		// consider editing this stop condition
-		if (state_cpu.pc > (prg_start + end_offset)) {
-			state_cpu.exit_prog = true;
 		}
 	}
 
