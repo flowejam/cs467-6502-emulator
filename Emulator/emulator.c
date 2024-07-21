@@ -5,8 +5,8 @@
 #include <stdbool.h>
 
 
-// TODO: let's consider moving some of the structs & helper functions to their
-// own files/headers?
+// TODO: let's consider adding/extern-ing some of the structs & helper functions to a 
+// header file to enable having tests in a separate file. 
 
 typedef struct Flags {
 	// These flags should be set to either 0x01 or 0x00.
@@ -84,8 +84,9 @@ static void update_processor_status(State6502* state) {
 }
 
 /*
- * Assumes bytes are pushed in little endian order. I.e. LSB is pushed first, 
- * so that the MSB is popped first.
+ * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
+ * stored in the stack will then be in little endian order.
+ * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only push a word (16 bits) at a time, even
  * if only 1 byte needs to be pushed.
@@ -110,8 +111,9 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 }
 
 /*
- * Assumes bytes are pushed in little endian order. I.e. LSB is pushed first, 
- * so that the MSB is popped first.
+ * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
+ * stored in the stack will then be in little endian order.
+ * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only pop a word (16 bits) at a time, even
  * if only 1 byte needs to be popped.
@@ -140,8 +142,11 @@ static void execute_0x00(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x00: BRK\n");
 	
 	// push the program counter to the stack
+	// according to https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors,
+	// 2 is added to the program counter prior to pushing to the stack.
 	// little endian - addresses stored in memory with LSB first
-	unsigned char pc_bytes[] = {state->pc & 0x00FF, (state->pc) >> 8};
+	uint16_t tmp_pc = state->pc + 2;
+	unsigned char pc_bytes[] = {tmp_pc >> 8, tmp_pc & 0x00FF};
 	int size = sizeof(pc_bytes);
 	int push_result = push_stack(state, size, pc_bytes);
 	if (push_result < 0) {
@@ -154,15 +159,16 @@ static void execute_0x00(State6502* state) {
 	// size is 2 because by default a full word (16 bits) should be pushed at
 	// a time.
 	size = 2;
-	unsigned char processor_status_bytes[] = {state->processor_status, 0x00};
+	unsigned char processor_status_bytes[] = {0x00, state->processor_status};
 	push_result = push_stack(state, size, processor_status_bytes); 
 	if (push_result < 0) {
 		// error in call to push_stack
 		return;
 	}
 
-	// load the BRK/IRQ vector into the program counter
-	// TODO
+	// load the BRK/IRQ vector into the program counter.
+	// I don't see anything re. an initial value for 0xFFFE-0xFFFF on power up:
+	// https://www.nesdev.org/wiki/CPU_power_up_state
 	state->pc = (state->memory[0xFFFF] << 8) | (state->memory[0xFFFE]);
 
 	// set the break flag
@@ -177,7 +183,6 @@ static void execute_0x00(State6502* state) {
 
 int Emulate(State6502* state) {
     uint8_t* opcode = &state->memory[state->pc];
-    state->pc++;
 
     switch (*opcode)
     {
@@ -350,6 +355,11 @@ int Emulate(State6502* state) {
         case 0xfe: printf("Not yet implemented\n"); break;
         default: printf("Invalid opcode: %02x\n", *opcode); break;
     }
+	// To get the opcode.
+	// PC shouldn't be modified before the instruction is executed so that
+	// the current value can be obtained/pushed to the stack etc. by the 
+	// instruction that was executed.
+    state->pc++;
 	return 0;
 }
 
