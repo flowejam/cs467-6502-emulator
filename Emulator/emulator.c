@@ -189,6 +189,30 @@ static void execute_0x00(State6502* state) {
 
 static void execute_0x01(State6502* state) {
 	// TODO
+	fprintf(stdout, "Executing opcode 0x01: ORA(indirect, X)\n");
+	state->pc++;
+	unsigned char zero_page_addr = state->memory[state->pc];
+
+	// As per http://www.emulator101.com/6502-addressing-modes.html,
+	// there is wrap around to an address on the 'zero page'.
+	uint16_t addr_of_addr = (state->x + zero_page_addr) & 0x00FF;
+	unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]}; 
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+
+	unsigned char byte_to_or = state->memory[addr];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
 }
 
 // Abraham opcode functions
@@ -800,6 +824,10 @@ static void execute_0x81(State6502* state) {
     state->pc++;
 }
 
+static void execute_0x84(State6502* state) {
+	// TODO
+}
+
 static void execute_0x85(State6502* state) {
     // Opccode 0x85: STA - Store Accumulator Zero Page
     // https://www.nesdev.org/obelisk-6502-guide/reference.html#STA
@@ -854,8 +882,6 @@ int Emulate(State6502* state) {
 			execute_0x00(state);
 			break;
         case 0x01: 
-			printf("Not yet implemented\n"); 
-			// TODO: clean up
 			execute_0x01(state);
 			break;
         case 0x05: printf("Not yet implemented\n"); break;
@@ -1151,7 +1177,7 @@ int main(int argc, char* argv[]) {
 
 	uint16_t prg_start = 0x8000;
 
-	size_t nread = fread(buf+prg_start, 1, (size_t)prg_length, fp);
+	size_t nread = fread(buf + prg_start, 1, (size_t)prg_length, fp);
 	if (nread != (size_t)prg_length) {
 		fprintf(stderr, "Error in func main: wrong number of bytes read from file.\n");
 		goto CLEANUP;
@@ -1166,7 +1192,18 @@ int main(int argc, char* argv[]) {
 	State6502 state_cpu;
 	state_cpu.flgs = &flags; 
 	state_cpu.memory = buf; 
-	state_cpu.pc = prg_start;
+	//state_cpu.pc = prg_start;
+
+	// As per https://www.nesdev.org/wiki/CPU_power_up_state, PC is initialized
+	// to 16 bit address found at 0xFFFC.
+	// TODO: need to work out how to read the .nes file into memory. See 
+	// https://www.nesdev.org/wiki/INES & https://forums.nesdev.org/viewtopic.php?t=15104 
+	// for details.
+	unsigned char start_addr_bytes[] = {state_cpu.memory[0xFFFC], state_cpu.memory[0xFFFD]};
+	uint16_t start_addr = (start_addr_bytes[1] << 8) | start_addr_bytes[0];
+	fprintf(stdout, "start_addr is: 0x%.04X\n", start_addr);
+	state_cpu.pc = start_addr;
+
 	// The stack pointer holds the lower 8 bits of the next free location on 
 	// the stack. This works because the stack is 256 bytes.
 	state_cpu.sp = 0x01FF & 0x00FF;
