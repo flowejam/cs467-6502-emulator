@@ -909,7 +909,9 @@ int Emulate(State6502* state) {
         case 0x2a: printf("Not yet implemented\n"); break;
 
         // Chris implementation
-        case 0x2c: printf("Not yet implemented\n"); break;
+        case 0x2c:
+            execute_0x2c(state);
+            break
         case 0x2d: printf("Not yet implemented\n"); break;
         case 0x2e: printf("Not yet implemented\n"); break;
         case 0x30: printf("Not yet implemented\n"); break;
