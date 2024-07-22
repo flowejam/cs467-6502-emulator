@@ -187,6 +187,10 @@ static void execute_0x00(State6502* state) {
 	
 }
 
+static void execute_0x01(State6502* state) {
+	// TODO
+}
+
 // Abraham opcode functions
 static void execute_0x58(State6502* state) {
     // Opccode 0x58: CLI - Clear Interrupt Disable Flag
@@ -849,7 +853,11 @@ int Emulate(State6502* state) {
 			// etc. will be interpreted as BRK (opcode 0). 
 			execute_0x00(state);
 			break;
-        case 0x01: printf("Not yet implemented\n"); break;
+        case 0x01: 
+			printf("Not yet implemented\n"); 
+			// TODO: clean up
+			execute_0x01(state);
+			break;
         case 0x05: printf("Not yet implemented\n"); break;
         case 0x06: printf("Not yet implemented\n"); break;
         case 0x08: printf("Not yet implemented\n"); break;
@@ -1149,7 +1157,6 @@ int main(int argc, char* argv[]) {
 		goto CLEANUP;
 	}
 
-	// TODO: initialize State6502  struct.
 	Flags flags = {0};
 	
 	// As per https://www.nesdev.org/wiki/CPU_power_up_state, the interrupt
