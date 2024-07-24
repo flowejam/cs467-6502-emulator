@@ -1198,7 +1198,7 @@ int main(int argc, char* argv[]) {
 
 	// As per https://www.nesdev.org/wiki/CPU_power_up_state, PC is initialized
 	// to 16 bit address found at 0xFFFC.
-	// TODO: need to work out how to read the .nes file into memory. See 
+	// Reading the .nes file into memory. See 
 	// https://www.nesdev.org/wiki/INES & https://forums.nesdev.org/viewtopic.php?t=15104 
 	// for details.
 	unsigned char start_addr_bytes[] = {state_cpu.memory[0xFFFC], state_cpu.memory[0xFFFD]};
