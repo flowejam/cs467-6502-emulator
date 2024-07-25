@@ -63,6 +63,26 @@ typedef struct State6502 {
 
 // ================== helper functions ======================================
 
+
+/*
+ * DO NOT USE: work in progress
+ */
+uint16_t apply_signed_offset_in_unsigned_char(uint16_t val, unsigned char offset) {
+	// TODO: finish implementation - add error handling. What happens if the 
+	// result would be negative? Should it only jump to zero? Needs research.
+	// Will use for BPL instruction.
+    uint16_t res = val;                                                        
+                                                                               
+    if ( (offset & 0x80) == 0x80) {                                            
+        unsigned char new_offset = (~offset + 1);                              
+        res -= new_offset;                                                     
+    } else {                                                                   
+        res += offset;                                                         
+    }                                                                          
+                                                                               
+    return res;                                                                
+}       
+
 /*
  * This helper function is used before pushing the processor state register
  * to the stack. Don't use this helper for any other purpose. E.g. for updating 
@@ -218,6 +238,7 @@ static void execute_0x01(State6502* state) {
 		state->flgs->neg_flag = 1;
 	}
 }
+
 static void execute_0x05(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x05: ORA - zero page\n");
 	state->pc++;
@@ -257,6 +278,10 @@ static void execute_0x06(State6502* state) {
 	if (op_result == 0x00) {
 		state->flgs->zro_flag = 0x01;
 	}
+
+	if ((op_result & 0x80) == 0x80) {
+		state->flgs->neg_flag = 0x01;
+	}
 }
 
 static void execute_0x08(State6502* state) {
@@ -273,7 +298,6 @@ static void execute_0x08(State6502* state) {
 }
 
 static void execute_0x09(State6502* state) {
-	// TODO
 	fprintf(stdout, "Executing opcode 0x09: ORA - Immediate\n");
 	state->pc++;
 	unsigned char byte_to_or = state->memory[state->pc];
@@ -290,6 +314,85 @@ static void execute_0x09(State6502* state) {
 	if ((state->a & 0x80) == 0x80) {
 		state->flgs->neg_flag = 1;
 	}
+}
+
+static void execute_0x0a(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x0a: ASL - Accumulator\n");
+	unsigned char op_result = (state->a << 1);
+	uint8_t old_bit7 = (state->a & 0x80) == 0x80 ? 0x01 : 0x00;
+	state->a = op_result;
+
+	state->flgs->crry_flag = old_bit7;
+	
+	if (op_result == 0x00) {
+		state->flgs->zro_flag = 0x01;
+	}
+
+	if ((op_result & 0x80) == 0x80) {
+		state->flgs->neg_flag = 0x01;
+	}
+}
+
+static void execute_0x0d(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x0d: ORA - Absolute\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte1 << 8) | byte2;
+
+	unsigned char byte_to_or = state->memory[addr];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	// set zero flag if applicable.
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	// set negative flag if bit 7 is set.
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+static void execute_0x0e(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x0e: ASL - Absolute\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte1 << 8) | byte2;
+
+	unsigned char selected_byte = state->memory[addr];
+	unsigned char op_result = (selected_byte << 1);
+	uint8_t old_bit7 = (selected_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+	state->memory[addr] = op_result;
+
+	state->flgs->crry_flag = old_bit7;
+	
+	// The author of the guide here (https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL)
+	// indicated that the zero flag should be set if the result of the instruction 
+	// applied to its operand is zero, not (as it states in the guide) the 
+	// accumulator. 
+	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
+	if (op_result == 0x00) {
+		state->flgs->zro_flag = 0x01;
+	}
+
+	if ((op_result & 0x80) == 0x80) {
+		state->flgs->neg_flag = 0x01;
+	}
+}
+
+static void execute_0x10(State6502* state) {
+	// TODO
+	fprintf(stdout, "Executing opcode 0x10: BPL - Relative\n");
 }
 
 // Chris' opcode functions
@@ -979,11 +1082,17 @@ int Emulate(State6502* state) {
 			execute_0x09(state);
 			break;
         case 0x0a: 
-			printf("Not yet implemented\n"); 
+			execute_0x0a(state);
 			break;
-        case 0x0d: printf("Not yet implemented\n"); break;
-        case 0x0e: printf("Not yet implemented\n"); break;
-        case 0x10: printf("Not yet implemented\n"); break;
+        case 0x0d: 
+			execute_0x0d(state);
+			break;
+        case 0x0e: 
+			execute_0x0e(state);
+			break;
+        case 0x10: 
+			execute_0x10(state);
+			break;
         case 0x11: printf("Not yet implemented\n"); break;
         case 0x15: printf("Not yet implemented\n"); break;
         case 0x16: printf("Not yet implemented\n"); break;
