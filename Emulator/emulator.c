@@ -3,11 +3,14 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-
+#include "flags.h"
+#include "state6502.h"
+#include "helpers6502.h"
+#include "opcodes6502.h"
 
 // TODO: let's consider adding/extern-ing some of the structs & helper functions to a 
 // header file to enable having tests in a separate file. 
-
+/** Created a Flags.h file to store the flags struct - Abraham
 typedef struct Flags {
 	// These flags should be set to either 0x01 or 0x00.
 	// 6502 has these flags:
@@ -26,6 +29,8 @@ typedef struct Flags {
 	// negative flag
 	uint8_t neg_flag;
 } Flags;
+
+
 
 typedef struct State6502 {
     uint8_t a;
@@ -61,6 +66,8 @@ typedef struct State6502 {
 	bool exit_prog;
 } State6502;
 
+*/
+
 // ================== helper functions ======================================
 
 /*
@@ -68,7 +75,7 @@ typedef struct State6502 {
  * to the stack. Don't use this helper for any other purpose. E.g. for updating 
  * the flags, they should be set/cleared as follows:
  * state->flgs->crry_flag = 0x01;
- */
+ *
 static void update_processor_status(State6502* state) {
 	// As per https://www.nesdev.org/wiki/Status_flags, bit #5 is always set.
 	// It 'has no CPU effect'.
@@ -90,7 +97,7 @@ static void update_processor_status(State6502* state) {
  * 'size' argument should always be 2:
  * by default, we should only push a word (16 bits) at a time, even
  * if only 1 byte needs to be pushed.
- */
+ *
 static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 	uint16_t stack_addr = state->sp | 0x0100;
 
@@ -117,7 +124,7 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
  * 'size' argument should always be 2:
  * by default, we should only pop a word (16 bits) at a time, even
  * if only 1 byte needs to be popped.
- */
+ *
 static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 	uint16_t stack_addr = state->sp | 0x0100;
 
@@ -135,6 +142,7 @@ static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 	state->sp = stack_addr & 0x00FF;
 	return 0;
 }
+*/
 // ================== end of helper functions ===============================
 
 
