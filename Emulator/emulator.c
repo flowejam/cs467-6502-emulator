@@ -395,9 +395,112 @@ static void execute_0x10(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x10: BPL - Relative\n");
 }
 
-// Chris' opcode functions
+// Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
 static void execute_0x2c(State6502* state) {
-	// TODO
+	fprintf(stdout, "Executing opcode 0x2c: BIT - Absolute\n");
+    // zero flag, set if the result if the AND is zero
+    // The mask pattern in A is ANDed with the value in memory to set or clear the zero flag, but the result
+    // is not kept. Bits 7 and 6 of the value from memory are copied into the N and V flags.
+    // BIT $NNNN
+    ++state->pc;
+    // byte1 has the lower memory address
+    unsigned char byte1 = state->memory[state->pc];
+    ++state->pc;
+    unsigned char byte2 = state->memory[state->pc];
+
+    // 16 bit addresses are stored in little endian order
+    uint16_t addr = (byte1 << 8) | byte2;
+
+    unsigned char byte_to_and = state->memory[addr];
+
+    // if the result of the ANDing is zero, set zero flag
+    if ((byte_to_and & state->a) == 0x00) {
+        state->flgs->zro_flag = 1;
+    }
+
+    // set overflow flag to bit 6 of the memory value
+    state->flgs->of_flag = (byte_to_and & 0x40) >> 7;
+
+    // set neg flag to bit 7 of the memory value
+    state->flgs->neg_flag = (byte_to_and & 0x80) >> 8;
+}
+
+static void execute_0x2d(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x2d: AND - Absolute\n");
+    ++state->pc;
+    // byte1 has the lower memory address
+    unsigned char byte1 = state->memory[state->pc];
+    ++state->pc;
+    unsigned char byte2 = state->memory[state->pc];
+
+    // 16 bit addresses are stored in little endian order
+    uint16_t addr = (byte1 << 8) | byte2;
+
+    unsigned char byte_to_and = state->memory[addr];
+
+    // AND the contents of register A
+    state->a &= byte_to_and;
+
+    // set zero flag if A is equal to zero
+    if (state->a == 0x00){
+        state->flgs->zro_flag = 1;
+    }
+
+    // set negative flag if bit 7 is set
+    if ((state->a & 0x80) == 0x80) {
+        state->flgs->neg_flag = 1;
+    }
+}
+
+static void execute_0x2e(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x2e: ROL - Absolute\n");
+    ++state->pc;
+    // byte1 has the lower memory address
+    unsigned char byte1 = state->memory[state->pc];
+    ++state->pc;
+    unsigned char byte2 = state->memory[state->pc];
+
+    // 16 bit addresses are stored in little endian order
+    uint16_t addr = (byte1 << 8) | byte2;
+
+    unsigned char target_byte = state->memory[addr];
+    unsigned char res = (target_byte << 1);
+    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // fill bit 0 with current value of the carry flag
+    if (state->flgs->crry_flag == 1){
+        // this sets the 0th bit
+        res |= state->flgs->crry_flag;
+    } else {
+        // this clears the 0th bit
+        res &= ~(0x01);
+    }
+    state->memory[addr] = res;
+    state->flgs->crry_flag = old_bit7;
+
+    if (res == 0x00) {
+        state->flgs->zro_flag = 0x01;
+    }
+
+    if ((res & 0x80) == 0x80) {
+        state->flgs->neg_flag = 0x01;
+    }
+
+}
+
+static void execute_0x30(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x30: BMI - Relative\n");
+    // if the negative flag is set then add the relative
+    // displacement to the program counter to cause a branch
+    // to a new location
+    ++state->pc;
+    int8_t val = state->memory[state->pc];
+
+    // check if the negative flag is set
+    if (state->flgs->neg_flag == 0x01) {
+        state->pc += val;
+    }
+
 }
 
 // Abraham opcode functions
