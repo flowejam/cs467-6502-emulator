@@ -137,7 +137,10 @@ static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 }
 // ================== end of helper functions ===============================
 
+
 // ================== opcode functions ======================================
+
+// James opcode functions
 static void execute_0x00(State6502* state) {
 	// more details on the BRK instruction can be found here: 
 	// http://www.6502.org/tutorials/interrupts.html#2.2
@@ -188,8 +191,7 @@ static void execute_0x00(State6502* state) {
 }
 
 static void execute_0x01(State6502* state) {
-	// TODO
-	fprintf(stdout, "Executing opcode 0x01: ORA(indirect, X)\n");
+	fprintf(stdout, "Executing opcode 0x01: ORA - (indirect, X)\n");
 	state->pc++;
 	unsigned char zero_page_addr = state->memory[state->pc];
 
@@ -206,13 +208,93 @@ static void execute_0x01(State6502* state) {
 	// inclusive OR on accumulator contents.
 	state->a |= byte_to_or;
 
+	// set zero flag if applicable.
 	if (state->a == 0x00) {
 		state->flgs->zro_flag = 1;
 	}
 
+	// set negative flag if bit 7 is set.
 	if ((state->a & 0x80) == 0x80) {
 		state->flgs->neg_flag = 1;
 	}
+}
+static void execute_0x05(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x05: ORA - zero page\n");
+	state->pc++;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char byte_to_or = state->memory[zero_page_addr];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	// set zero flag if applicable.
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	// set negative flag if bit 7 is set.
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+static void execute_0x06(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x06: ASL - zero page\n");
+	state->pc++;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char selected_byte = state->memory[zero_page_addr];
+	unsigned char op_result = (selected_byte << 1);
+	uint8_t old_bit7 = (selected_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+	state->memory[zero_page_addr] = op_result;
+
+	state->flgs->crry_flag = old_bit7;
+	
+	// The author of the guide here (https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL)
+	// indicated that the zero flag should be set if the result of the instruction 
+	// applied to its operand is zero, not (as it states in the guide) the 
+	// accumulator. 
+	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
+	if (op_result == 0x00) {
+		state->flgs->zro_flag = 0x01;
+	}
+}
+
+static void execute_0x08(State6502* state) {
+	// This opcode just pushes the processer_status register to the stack.
+	fprintf(stdout, "Executing opcode 0x08: PHP - Implied\n");
+	update_processor_status(state);
+	int size = 2;
+	unsigned char processor_status_bytes[] = {0x00, state->processor_status};
+	int push_result = push_stack(state, size, processor_status_bytes); 
+	if (push_result < 0) {
+		// error in call to push_stack
+		return;
+	}
+}
+
+static void execute_0x09(State6502* state) {
+	// TODO
+	fprintf(stdout, "Executing opcode 0x09: ORA - Immediate\n");
+	state->pc++;
+	unsigned char byte_to_or = state->memory[state->pc];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	// set zero flag if applicable.
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	// set negative flag if bit 7 is set.
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+// Chris' opcode functions
+static void execute_0x2c(State6502* state) {
+	// TODO
 }
 
 // Abraham opcode functions
@@ -884,11 +966,21 @@ int Emulate(State6502* state) {
         case 0x01: 
 			execute_0x01(state);
 			break;
-        case 0x05: printf("Not yet implemented\n"); break;
-        case 0x06: printf("Not yet implemented\n"); break;
-        case 0x08: printf("Not yet implemented\n"); break;
-        case 0x09: printf("Not yet implemented\n"); break;
-        case 0x0a: printf("Not yet implemented\n"); break;
+        case 0x05: 
+			execute_0x05(state);
+			break;
+        case 0x06: 
+			execute_0x06(state);
+			break;
+        case 0x08: 
+			execute_0x08(state);
+			break;
+        case 0x09: 
+			execute_0x09(state);
+			break;
+        case 0x0a: 
+			printf("Not yet implemented\n"); 
+			break;
         case 0x0d: printf("Not yet implemented\n"); break;
         case 0x0e: printf("Not yet implemented\n"); break;
         case 0x10: printf("Not yet implemented\n"); break;
@@ -911,7 +1003,7 @@ int Emulate(State6502* state) {
         // Chris implementation
         case 0x2c:
             execute_0x2c(state);
-            break
+            break;
         case 0x2d: printf("Not yet implemented\n"); break;
         case 0x2e: printf("Not yet implemented\n"); break;
         case 0x30: printf("Not yet implemented\n"); break;
