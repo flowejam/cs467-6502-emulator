@@ -452,6 +452,57 @@ static void execute_0x2d(State6502* state) {
     }
 }
 
+static void execute_0x2e(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x2e: ROL - Absolute\n");
+    ++state->pc;
+    // byte1 has the lower memory address
+    unsigned char byte1 = state->memory[state->pc];
+    ++state->pc;
+    unsigned char byte2 = state->memory[state->pc];
+
+    // 16 bit addresses are stored in little endian order
+    uint16_t addr = (byte1 << 8) | byte2;
+
+    unsigned char target_byte = state->memory[addr];
+    unsigned char res = (target_byte << 1);
+    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // fill bit 0 with current value of the carry flag
+    if (state->flgs->crry_flag == 1){
+        // this sets the 0th bit
+        res |= state->flgs->crry_flag;
+    } else {
+        // this clears the 0th bit
+        res &= ~(0x01);
+    }
+    state->memory[addr] = res;
+    state->flgs->crry_flag = old_bit7;
+
+    if (res == 0x00) {
+        state->flgs->zro_flag = 0x01;
+    }
+
+    if ((res & 0x80) == 0x80) {
+        state->flgs->neg_flag = 0x01;
+    }
+
+}
+
+static void execute_0x30(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x30: BMI - Relative\n");
+    // if the negative flag is set then add the relative
+    // displacement to the program counter to cause a branch
+    // to a new location
+    ++state->pc;
+    int8_t val = state->memory[state->pc];
+
+    // check if the negative flag is set
+    if (state->flgs->neg_flag == 0x01) {
+        state->pc += val;
+    }
+
+}
+
 // Abraham opcode functions
 static void execute_0x58(State6502* state) {
     // Opccode 0x58: CLI - Clear Interrupt Disable Flag
