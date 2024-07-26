@@ -7,6 +7,7 @@ References (in no particular order):
 3) Wikipedia contributors. (2023, December 1). Interrupts in 65xx processors. In Wikipedia, The Free Encyclopedia. Retrieved 5:51pm PST, July 20, 2024, from https://en.wikipedia.org/w/index.php?title=Interrupts_in_65xx_processors&oldid=1187777565
 4) Wilson, Garth. Investigating Interrupts. (accessed July 20, 2024). http://www.6502.org/tutorials/interrupts.html#2.2
 5) Nesdev Wiki contributors. (accessed July 20, 2024). https://www.nesdev.org/wiki/Nesdev_Wiki
+6) TODO: add citation for https://web.archive.org/web/20221112230813if_/http://archive.6502.org/books/mcs6500_family_programming_manual.pdf
 
 
 Regarding the Disassembler
