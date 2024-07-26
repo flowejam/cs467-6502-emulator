@@ -65,15 +65,21 @@ typedef struct State6502 {
 
 
 /*
- * DO NOT USE: work in progress
+ * Does not attempt to handle invalid results.
+ * This helper function takes a raw byte containing a signed integer value, 
+ * determines if the value is negative or positive, and applies the offset to 
+ * to the 16 bit value accordingly. 
  */
 uint16_t apply_signed_offset_in_unsigned_char(uint16_t val, unsigned char offset) {
-	// TODO: finish implementation - add error handling. What happens if the 
-	// result would be negative? Should it only jump to zero? Needs research.
-	// Will use for BPL instruction.
+	// TODO: consider adding error handling. E.g., what happens if there is 
+	// integer overflow or underflow? Should it only jump to zero if there is 
+	// underflow? Needs research.
+	
+	// Used for branches.
     uint16_t res = val;                                                        
                                                                                
     if ( (offset & 0x80) == 0x80) {                                            
+		// two's complement
         unsigned char new_offset = (~offset + 1);                              
         res -= new_offset;                                                     
     } else {                                                                   
@@ -211,6 +217,8 @@ static void execute_0x00(State6502* state) {
 }
 
 static void execute_0x01(State6502* state) {
+	// indirect addressing -> using an address to get another address, and
+	// retrieving the data from that address.
 	fprintf(stdout, "Executing opcode 0x01: ORA - (indirect, X)\n");
 	state->pc++;
 	unsigned char zero_page_addr = state->memory[state->pc];
@@ -341,7 +349,7 @@ static void execute_0x0d(State6502* state) {
 	unsigned char byte2 = state->memory[state->pc];
 
 	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte1 << 8) | byte2;
+	uint16_t addr = (byte2 << 8) | byte1;
 
 	unsigned char byte_to_or = state->memory[addr];
 
@@ -367,7 +375,7 @@ static void execute_0x0e(State6502* state) {
 	unsigned char byte2 = state->memory[state->pc];
 
 	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte1 << 8) | byte2;
+	uint16_t addr = (byte2 << 8) | byte1;
 
 	unsigned char selected_byte = state->memory[addr];
 	unsigned char op_result = (selected_byte << 1);
@@ -391,8 +399,181 @@ static void execute_0x0e(State6502* state) {
 }
 
 static void execute_0x10(State6502* state) {
-	// TODO
 	fprintf(stdout, "Executing opcode 0x10: BPL - Relative\n");
+	++state->pc;
+	unsigned char offset = state->memory[state->pc];
+	if (state->flgs->neg_flag == 0x00) {
+		uint16_t new_pc = apply_signed_offset_in_unsigned_char(state->pc, offset);
+		state->pc = new_pc;
+	}
+}
+
+static void execute_0x11(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x11: ORA - (Indirect), Y\n");
+	state->pc++;
+	unsigned char addr_of_addr = state->memory[state->pc];
+	unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]}; 
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+	addr += state->y;
+
+	unsigned char byte_to_or = state->memory[addr];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	// set zero flag if applicable.
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	// set negative flag if bit 7 is set.
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+static void execute_0x15(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x15: ORA - Zero Page, X\n");
+	state->pc++;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char byte_to_or = state->memory[zero_page_addr];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	// set zero flag if applicable.
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	// set negative flag if bit 7 is set.
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+static void execute_0x16(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x16: ASL - Zero Page, X\n");
+	state->pc++;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char selected_byte = state->memory[zero_page_addr];
+	unsigned char op_result = (selected_byte << 1);
+	uint8_t old_bit7 = (selected_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+	state->memory[zero_page_addr] = op_result;
+
+	state->flgs->crry_flag = old_bit7;
+	
+	// The author of the guide here (https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL)
+	// indicated that the zero flag should be set if the result of the instruction 
+	// applied to its operand is zero, not (as it states in the guide) the 
+	// accumulator. 
+	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
+	if (op_result == 0x00) {
+		state->flgs->zro_flag = 0x01;
+	}
+
+	if ((op_result & 0x80) == 0x80) {
+		state->flgs->neg_flag = 0x01;
+	}
+}
+
+static void execute_0x18(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x18: CLC - Implied\n");
+	state->flgs->crry_flag = 0x00;
+}
+
+static void execute_0x19(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x19: ORA - Absolute, Y\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->y;
+
+	unsigned char byte_to_or = state->memory[addr];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	// set zero flag if applicable.
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	// set negative flag if bit 7 is set.
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+static void execute_0x1d(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x1d: ORA - Absolute, X\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->x;
+
+	unsigned char byte_to_or = state->memory[addr];
+
+	// inclusive OR on accumulator contents.
+	state->a |= byte_to_or;
+
+	// set zero flag if applicable.
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	// set negative flag if bit 7 is set.
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+static void execute_0x1e(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x1e: ASL - Absolute, X\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->x;
+
+	unsigned char selected_byte = state->memory[addr];
+	unsigned char op_result = (selected_byte << 1);
+	uint8_t old_bit7 = (selected_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+	state->memory[addr] = op_result;
+
+	state->flgs->crry_flag = old_bit7;
+	
+	// The author of the guide here (https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL)
+	// indicated that the zero flag should be set if the result of the instruction 
+	// applied to its operand is zero, not (as it states in the guide) the 
+	// accumulator. 
+	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
+	if (op_result == 0x00) {
+		state->flgs->zro_flag = 0x01;
+	}
+
+	if ((op_result & 0x80) == 0x80) {
+		state->flgs->neg_flag = 0x01;
+	}
+}
+
+static void execute_0x20(State6502* state) {
+	// TODO
 }
 
 // Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
@@ -1196,14 +1377,30 @@ int Emulate(State6502* state) {
         case 0x10: 
 			execute_0x10(state);
 			break;
-        case 0x11: printf("Not yet implemented\n"); break;
-        case 0x15: printf("Not yet implemented\n"); break;
-        case 0x16: printf("Not yet implemented\n"); break;
-        case 0x18: printf("Not yet implemented\n"); break;
-        case 0x19: printf("Not yet implemented\n"); break;
-        case 0x1d: printf("Not yet implemented\n"); break;
-        case 0x1e: printf("Not yet implemented\n"); break;
-        case 0x20: printf("Not yet implemented\n"); break;
+        case 0x11: 
+			execute_0x11(state);
+			break;
+        case 0x15: 
+			execute_0x15(state);
+			break;
+        case 0x16: 
+			execute_0x16(state);
+			break;
+        case 0x18: 
+			execute_0x18(state);
+			break;
+        case 0x19: 
+			execute_0x19(state);
+			break;
+        case 0x1d: 
+			execute_0x1d(state);
+			break;
+        case 0x1e: 
+			execute_0x1e(state);
+			break;
+        case 0x20: 
+			execute_0x20(state);
+			break;
         case 0x21: printf("Not yet implemented\n"); break;
         case 0x24: printf("Not yet implemented\n"); break;
         case 0x25: printf("Not yet implemented\n"); break;
