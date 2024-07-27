@@ -237,14 +237,10 @@ static void execute_0x01(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x05(State6502* state) {
@@ -257,14 +253,10 @@ static void execute_0x05(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x06(State6502* state) {
@@ -283,13 +275,9 @@ static void execute_0x06(State6502* state) {
 	// applied to its operand is zero, not (as it states in the guide) the 
 	// accumulator. 
 	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	if (op_result == 0x00) {
-		state->flgs->zro_flag = 0x01;
-	}
+	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
 
-	if ((op_result & 0x80) == 0x80) {
-		state->flgs->neg_flag = 0x01;
-	}
+	state->flgs->neg_flag = (op_result & 0x80) ? 1 : 0;
 }
 
 static void execute_0x08(State6502* state) {
@@ -314,14 +302,10 @@ static void execute_0x09(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x0a(State6502* state) {
@@ -332,13 +316,9 @@ static void execute_0x0a(State6502* state) {
 
 	state->flgs->crry_flag = old_bit7;
 	
-	if (op_result == 0x00) {
-		state->flgs->zro_flag = 0x01;
-	}
+	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
 
-	if ((op_result & 0x80) == 0x80) {
-		state->flgs->neg_flag = 0x01;
-	}
+	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x0d(State6502* state) {
@@ -357,14 +337,10 @@ static void execute_0x0d(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x0e(State6502* state) {
@@ -389,13 +365,9 @@ static void execute_0x0e(State6502* state) {
 	// applied to its operand is zero, not (as it states in the guide) the 
 	// accumulator. 
 	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	if (op_result == 0x00) {
-		state->flgs->zro_flag = 0x01;
-	}
+	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
 
-	if ((op_result & 0x80) == 0x80) {
-		state->flgs->neg_flag = 0x01;
-	}
+	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x10(State6502* state) {
@@ -424,14 +396,10 @@ static void execute_0x11(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x15(State6502* state) {
@@ -445,14 +413,10 @@ static void execute_0x15(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x16(State6502* state) {
@@ -472,13 +436,8 @@ static void execute_0x16(State6502* state) {
 	// applied to its operand is zero, not (as it states in the guide) the 
 	// accumulator. 
 	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	if (op_result == 0x00) {
-		state->flgs->zro_flag = 0x01;
-	}
-
-	if ((op_result & 0x80) == 0x80) {
-		state->flgs->neg_flag = 0x01;
-	}
+	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
+	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x18(State6502* state) {
@@ -503,14 +462,10 @@ static void execute_0x19(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x1d(State6502* state) {
@@ -530,14 +485,10 @@ static void execute_0x1d(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
 
 	// set negative flag if bit 7 is set.
-	if ((state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x1e(State6502* state) {
@@ -563,13 +514,9 @@ static void execute_0x1e(State6502* state) {
 	// applied to its operand is zero, not (as it states in the guide) the 
 	// accumulator. 
 	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	if (op_result == 0x00) {
-		state->flgs->zro_flag = 0x01;
-	}
+	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
 
-	if ((op_result & 0x80) == 0x80) {
-		state->flgs->neg_flag = 0x01;
-	}
+	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x20(State6502* state) {
@@ -578,7 +525,11 @@ static void execute_0x20(State6502* state) {
 	uint16_t saved_addr = state->pc + 3 - 1;
 	int size = 2;
 	unsigned char bytes[] = {(saved_addr >> 8), (saved_addr & 0xFF)};
-	int push_result = push_stack(state, 2, bytes);
+	int push_result = push_stack(state, size, bytes);
+	if (push_result < 0) {
+		// error in call to push_stack
+		return;
+	}
 
 	++state->pc;
 	unsigned char byte1 = state->memory[state->pc];
@@ -597,16 +548,13 @@ static void execute_0x21(State6502* state) {
 	uint16_t addr_of_addr = (zero_page_addr + state->x) & 0xFF;
 	unsigned char addr_bytes[] = {state->memory[addr_of_addr],state->memory[++addr_of_addr]};
 	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
-	unsigned char byte_to_and = state->memory[state->x];
+	unsigned char byte_to_and = state->memory[addr];
 
 	state->a &= byte_to_and;
-	if (state->a == 0x00) {
-		state->flgs->zro_flag = 1;
-	}
 
-	if ( (state->a & 0x80) == 0x80) {
-		state->flgs->neg_flag = 1;
-	}
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+
+	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x24(State6502* state) {
@@ -1021,8 +969,6 @@ static void execute_0x6a(State6502* state) {
 }
 
 static void execute_0x6c(State6502* state) {
-	// TODO: modify this to account for the increment after the switch statement.
-	
     // Opccode 0x6C: JMP - Jump Indirect
     // https://www.nesdev.org/obelisk-6502-guide/reference.html#JMP
     fprintf(stdout, "Executing opcode 0x6C: JMP\n");
