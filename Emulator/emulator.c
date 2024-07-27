@@ -590,6 +590,37 @@ static void execute_0x20(State6502* state) {
 	state->pc = addr - 1;
 }
 
+static void execute_0x21(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x21: AND - (Indirect, X)\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	uint16_t addr_of_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char addr_bytes[] = {state->memory[addr_of_addr],state->memory[++addr_of_addr]};
+	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+	unsigned char byte_to_and = state->memory[state->x];
+
+	state->a &= byte_to_and;
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
+
+	if ( (state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
+}
+
+static void execute_0x24(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x24: BIT - Zero Page\n");
+	++state->pc;
+	unsigned char zero_addr = state->memory[state->pc];
+	unsigned char zero_addr_byte = state->memory[zero_addr];
+	uint8_t bit_res = state->a & zero_addr_byte;
+
+	state->flgs->neg_flag = (zero_addr_byte & 0x80) == 0x80 ? 1 : 0;
+	state->flgs->of_flag = (zero_addr_byte & 0x40) == 0x40 ? 1 : 0;
+	state->flgs->zro_flag = bit_res == 0x00 ? 1 : 0;
+}
+
 // Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
 static void execute_0x2c(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x2c: BIT - Absolute\n");
@@ -1001,7 +1032,7 @@ static void execute_0x6c(State6502* state) {
     state->pc += 2;
 
     // Jump to the new address
-    state->pc = addr;
+    state->pc = addr - 1;
 
 }
 
@@ -1417,8 +1448,12 @@ int Emulate(State6502* state) {
         case 0x20: 
 			execute_0x20(state);
 			break;
-        case 0x21: printf("Not yet implemented\n"); break;
-        case 0x24: printf("Not yet implemented\n"); break;
+        case 0x21: 
+			execute_0x21(state);
+			break;
+        case 0x24: 
+			execute_0x24(state);
+			break;
         case 0x25: printf("Not yet implemented\n"); break;
         case 0x26: printf("Not yet implemented\n"); break;
         case 0x28: printf("Not yet implemented\n"); break;
