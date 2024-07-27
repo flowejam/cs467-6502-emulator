@@ -110,8 +110,23 @@ static void update_processor_status(State6502* state) {
 }
 
 /*
- * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
- * stored in the stack will then be in little endian order.
+ * This helper function is used after popping the processor state register
+ * from the stack (e.g.: the PLP instruction). It updates all of the flags 
+ * using the value in the processor_status register.
+ * Don't use this helper for any other purpose.
+ */
+static void update_flags_from_processor_status(State6502* state) {
+	state->flgs->crry_flag = (state->processor_status & 0x01) == 0x01 ? 1 : 0;
+	state->flgs->zro_flag = (state->processor_status & 0x02) == 0x02 ? 1 : 0;
+	state->flgs->inter_disable_flag = (state->processor_status & 0x04) == 0x04 ? 1 : 0;
+	state->flgs->dec_flag = (state->processor_status & 0x08) == 0x08 ? 1 : 0;
+	state->flgs->brk_flag = (state->processor_status & 0x10) == 0x10 ? 1 : 0;
+	state->flgs->of_flag = (state->processor_status & 0x40) == 0x40 ? 1 : 0;
+	state->flgs->neg_flag = (state->processor_status & 0x80) == 0x80 ? 1 : 0;
+}
+
+/*
+ * Assumes the MSB is pushed first, so that the LSB is popped first. 
  * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only push a word (16 bits) at a time, even
@@ -137,8 +152,7 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 }
 
 /*
- * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
- * stored in the stack will then be in little endian order.
+ * Assumes the MSB is pushed first, so that the LSB is popped first. 
  * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only pop a word (16 bits) at a time, even
@@ -592,6 +606,43 @@ static void execute_0x26(State6502* state) {
 	state->flgs->neg_flag = old_bit6;
 	state->flgs->zro_flag = op_result == 0x00 ? 1 : 0;
 	state->memory[zero_page_addr] = op_result;
+}
+
+static void execute_0x28(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x28: PLP - Implied\n");
+	// popped_bytes: {LSB, MSB};
+	unsigned char popped_bytes[2] = {0};
+
+	int pop_result = pop_stack(state, 2, popped_bytes);
+	if (pop_result < 0) {
+		// error in call to pop_stack
+		return;
+	}
+
+	// Assumes the processor_status flag was pushed as a 16-bit value
+	state->processor_status = popped_bytes[0];
+	update_flags_from_processor_status(state);
+}
+
+static void execute_0x29(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x29: AND - Immediate\n");
+	++state->pc;
+	unsigned char byte_to_and = state->memory[state->pc];
+
+	state->a &= byte_to_and;
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x2a(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x2a: ROL - Accumulator\n");
+	uint8_t old_bit7 = (state->a & 0x80) == 0x80 ? 1 : 0;
+	uint8_t old_bit6 = (state->a & 0x40) == 0x40 ? 1 : 0;
+	unsigned char op_result = (state->a << 1) | state->flgs->crry_flag;
+	state->flgs->crry_flag = old_bit7;
+	state->flgs->neg_flag = old_bit6;
+	state->flgs->zro_flag = op_result == 0x00 ? 1 : 0;
+	state->a = op_result;
 }
 
 // Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
@@ -1431,9 +1482,15 @@ int Emulate(State6502* state) {
         case 0x26: 
 			execute_0x26(state);
 			break;
-        case 0x28: printf("Not yet implemented\n"); break;
-        case 0x29: printf("Not yet implemented\n"); break;
-        case 0x2a: printf("Not yet implemented\n"); break;
+        case 0x28: 
+			execute_0x28(state);
+			break;
+        case 0x29: 
+			execute_0x29(state);
+			break;
+        case 0x2a: 
+			execute_0x2a(state);
+			break;
 
         // Chris implementation
         case 0x2c:
