@@ -573,7 +573,21 @@ static void execute_0x1e(State6502* state) {
 }
 
 static void execute_0x20(State6502* state) {
-	// TODO
+	fprintf(stdout, "Executing opcode 0x20: JSR - Absolute\n");
+	// The address of the next instruction (pc + 3) - 1 is pushed to the stack.
+	uint16_t saved_addr = state->pc + 3 - 1;
+	int size = 2;
+	unsigned char bytes[] = {(saved_addr >> 8), (saved_addr & 0xFF)};
+	int push_result = push_stack(state, 2, bytes);
+
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+	uint16_t addr = (byte2 << 8) | byte1;
+
+	// assumes an increment will occur after this instruction.
+	state->pc = addr - 1;
 }
 
 // Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
@@ -976,6 +990,8 @@ static void execute_0x6a(State6502* state) {
 }
 
 static void execute_0x6c(State6502* state) {
+	// TODO: modify this to account for the increment after the switch statement.
+	
     // Opccode 0x6C: JMP - Jump Indirect
     // https://www.nesdev.org/obelisk-6502-guide/reference.html#JMP
     fprintf(stdout, "Executing opcode 0x6C: JMP\n");
@@ -1606,6 +1622,8 @@ int Emulate(State6502* state) {
 		state->exit_prog = true;
 	}
 
+	// Note that some instructions are adjusted for this increment, assuming
+	// it will always occur. E.g. JSR, JMP
 	// To get the opcode.
 	// PC shouldn't be modified before the instruction is executed so that
 	// the current value can be obtained/pushed to the stack etc. by the 
