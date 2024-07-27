@@ -1001,7 +1001,7 @@ static void execute_0x6c(State6502* state) {
     state->pc += 2;
 
     // Jump to the new address
-    state->pc = addr;
+    state->pc = addr - 1;
 
 }
 
