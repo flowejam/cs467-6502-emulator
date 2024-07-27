@@ -569,6 +569,31 @@ static void execute_0x24(State6502* state) {
 	state->flgs->zro_flag = bit_res == 0x00 ? 1 : 0;
 }
 
+static void execute_0x25(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x25: AND - Zero Page\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char byte_to_and = state->memory[zero_page_addr];
+
+	state->a &= byte_to_and;
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x26(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x26: ROL - Zero Page\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char byte_to_rotate = state->memory[zero_page_addr];
+	uint8_t old_bit7 = (byte_to_rotate & 0x80) == 0x80 ? 1 : 0;
+	uint8_t old_bit6 = (byte_to_rotate & 0x40) == 0x40 ? 1 : 0;
+	unsigned char op_result = (byte_to_rotate << 1) | state->flgs->crry_flag;
+	state->flgs->crry_flag = old_bit7;
+	state->flgs->neg_flag = old_bit6;
+	state->flgs->zro_flag = op_result == 0x00 ? 1 : 0;
+	state->memory[zero_page_addr] = op_result;
+}
+
 // Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
 static void execute_0x2c(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x2c: BIT - Absolute\n");
@@ -1400,8 +1425,12 @@ int Emulate(State6502* state) {
         case 0x24: 
 			execute_0x24(state);
 			break;
-        case 0x25: printf("Not yet implemented\n"); break;
-        case 0x26: printf("Not yet implemented\n"); break;
+        case 0x25: 
+			execute_0x25(state);
+			break;
+        case 0x26: 
+			execute_0x26(state);
+			break;
         case 0x28: printf("Not yet implemented\n"); break;
         case 0x29: printf("Not yet implemented\n"); break;
         case 0x2a: printf("Not yet implemented\n"); break;
