@@ -750,7 +750,144 @@ static void execute_0x30(State6502* state) {
     if (state->flgs->neg_flag == 0x01) {
         state->pc += val;
     }
+}
 
+static void execute_0x31(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x31: AND - Indirect Indexed\n");
+    // A logical AND is performed, bit by bit, on the accumulator contents
+    // using the contents of a byte of memory
+    // zero flag, set if (A or M) equals 0
+    // negative flag, set if bit 7 set
+    // this instructions uses 2 bytes, as follows: AND ($NN), Y
+    ++state->pc;
+    unsigned char addr_of_addr = state->memory[state->pc];
+    unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]};
+
+    // little endian
+    uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+    addr += state->y;
+
+    unsigned char byte_to_and = state->memory[addr];
+
+    // modifying register a
+    state->a &= byte_to_and;
+
+    state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
+    state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
+}
+
+
+static void execute_0x35(State6502* state) {
+    // A logical AND is performed, bit by bit, on the accumulator contents
+    // using the contents of a byte of memory
+    // zero flag, set if (A or M) equals 0
+    // negative flag, set if bit 7 set
+    // used as follows: AND $NN, X
+    fprintf(stdout, "Executing opcode 0x35: AND - Zero Page, X\n");
+    ++state->pc;
+    unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char byte_to_and = state->memory[zero_page_addr];
+
+	// modify register a
+	state->a &= byte_to_and;
+
+	// set zero flag if applicable.
+	state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
+
+	// set negative flag if bit 7 is set.
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
+}
+
+static void execute_0x36(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x36: ROL - Zero Page, X\n");
+    //Move each of the bits in either A or M one place to the left. Bit 0 is filled with
+    // the current value of the carry flag whilst the old bit 7 becomes the new carry
+    // flag value.
+    ++state->pc;
+    unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char target_byte = state->memory[zero_page_addr];
+
+    // rotate left by 1
+    unsigned char res = (target_byte << 1);
+
+    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // fill bit 0 with current value of the carry flag
+    if (state->flgs->crry_flag == 1){
+        // this sets the 0th bit
+        res |= state->flgs->crry_flag;
+    } else {
+        // this clears the 0th bit
+        res &= ~(0x01);
+    }
+
+    state->memory[zero_page_addr] = res;
+    state->flgs->crry_flag = old_bit7;
+
+    if (res == 0x00) {
+        state->flgs->zro_flag = 0x01;
+    }
+
+    if ((res & 0x80) == 0x80) {
+        state->flgs->neg_flag = 0x01;
+    }
+}
+
+static void execute_0x38(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x38: SEC - Implied\n");
+    // This is a 1 byte instruction code
+    // set the carry flag to 1
+    state->flgs->crry_flag = 0x01;
+}
+
+static void execute_0x39(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x39: AND - Absolute, Y\n");
+    // use as follows: AND $NNNN, Y
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->y;
+
+	unsigned char byte_to_and = state->memory[addr];
+
+	// modifying register a
+	state->a &= byte_to_and;
+
+	// set zero flag if applicable.
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+
+	// set negative flag if bit 7 is set.
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x3d(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x3d: AND - Absolute, X\n");
+    // use as follows: AND $NNNN, X
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->x;
+
+	unsigned char byte_to_and = state->memory[addr];
+
+	// modifying register a
+	state->a &= byte_to_and;
+
+	// set zero flag if applicable.
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+
+	// set negative flag if bit 7 is set.
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
 }
 
 // Abraham opcode functions
