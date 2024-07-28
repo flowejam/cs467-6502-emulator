@@ -750,7 +750,456 @@ static void execute_0x30(State6502* state) {
     if (state->flgs->neg_flag == 0x01) {
         state->pc += val;
     }
+}
 
+static void execute_0x31(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x31: AND - Indirect Indexed\n");
+    // A logical AND is performed, bit by bit, on the accumulator contents
+    // using the contents of a byte of memory
+    // zero flag, set if (A or M) equals 0
+    // negative flag, set if bit 7 set
+    // this instructions uses 2 bytes, as follows: AND ($NN), Y
+    ++state->pc;
+    unsigned char addr_of_addr = state->memory[state->pc];
+    unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]};
+
+    // little endian
+    uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+    addr += state->y;
+
+    unsigned char byte_to_and = state->memory[addr];
+
+    // modifying register a
+    state->a &= byte_to_and;
+
+    state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
+    state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
+}
+
+
+static void execute_0x35(State6502* state) {
+    // A logical AND is performed, bit by bit, on the accumulator contents
+    // using the contents of a byte of memory
+    // zero flag, set if (A or M) equals 0
+    // negative flag, set if bit 7 set
+    // used as follows: AND $NN, X
+    fprintf(stdout, "Executing opcode 0x35: AND - Zero Page, X\n");
+    ++state->pc;
+    unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char byte_to_and = state->memory[zero_page_addr];
+
+	// modify register a
+	state->a &= byte_to_and;
+
+	// set zero flag if applicable.
+	state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
+
+	// set negative flag if bit 7 is set.
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
+}
+
+static void execute_0x36(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x36: ROL - Zero Page, X\n");
+    //Move each of the bits in either A or M one place to the left. Bit 0 is filled with
+    // the current value of the carry flag whilst the old bit 7 becomes the new carry
+    // flag value.
+    ++state->pc;
+    unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char target_byte = state->memory[zero_page_addr];
+
+    // rotate left by 1
+    unsigned char res = (target_byte << 1);
+
+    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // fill bit 0 with current value of the carry flag
+    if (state->flgs->crry_flag == 1){
+        // this sets the 0th bit
+        res |= state->flgs->crry_flag;
+    } else {
+        // this clears the 0th bit
+        res &= ~(0x01);
+    }
+
+    state->memory[zero_page_addr] = res;
+    state->flgs->crry_flag = old_bit7;
+
+    if (res == 0x00) {
+        state->flgs->zro_flag = 0x01;
+    }
+
+    if ((res & 0x80) == 0x80) {
+        state->flgs->neg_flag = 0x01;
+    }
+}
+
+static void execute_0x38(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x38: SEC - Implied\n");
+    // This is a 1 byte instruction code
+    // set the carry flag to 1
+    state->flgs->crry_flag = 0x01;
+}
+
+static void execute_0x39(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x39: AND - Absolute, Y\n");
+    // use as follows: AND $NNNN, Y
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->y;
+
+	unsigned char byte_to_and = state->memory[addr];
+
+	// modifying register a
+	state->a &= byte_to_and;
+
+	// set zero flag if applicable.
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+
+	// set negative flag if bit 7 is set.
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x3d(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x3d: AND - Absolute, X\n");
+    // use as follows: AND $NNNN, X
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->x;
+
+	unsigned char byte_to_and = state->memory[addr];
+
+	// modifying register a
+	state->a &= byte_to_and;
+
+	// set zero flag if applicable.
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+
+	// set negative flag if bit 7 is set.
+	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x3e(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x3e: ROL - Absolute, X\n");
+    // used as follows: ROL $NNNN, X
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+
+	unsigned char target_byte = state->memory[addr];
+
+    // rotate left by 1
+    unsigned char res = (target_byte << 1);
+
+    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // fill bit 0 with current value of the carry flag
+    if (state->flgs->crry_flag == 1){
+        // this sets the 0th bit
+        res |= state->flgs->crry_flag;
+    } else {
+        // this clears the 0th bit
+        res &= ~(0x01);
+    }
+
+    state->memory[addr] = res;
+    state->flgs->crry_flag = old_bit7;
+
+    if (res == 0x00) {
+        state->flgs->zro_flag = 0x01;
+    }
+
+    if ((res & 0x80) == 0x80) {
+        state->flgs->neg_flag = 0x01;
+    }
+}
+
+static void execute_0x40(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x40: RTI - Implied\n");
+    // RTI - Return from Interrupt
+    // This is a 1 byte instruction
+    // The RTI instruction is used at the end of an interrupt processing routine.
+    // It pulls the processor flags from the stack followed by the program counter.
+}
+
+static void execute_0x41(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x41: EOR - Indexed Indirect\n");
+    // EOR ($NN, X)
+    // An exclusive OR is performed, bit by bit, on the accumulator contents 
+    // using the contents of a byte of memory.
+    // instruction is 2 bytes
+    ++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	uint16_t addr_of_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char addr_bytes[] = {state->memory[addr_of_addr],state->memory[++addr_of_addr]};
+	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+	unsigned char byte_to_eor = state->memory[addr];
+
+	state->a ^= byte_to_eor;
+
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+
+	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
+
+}
+
+static void execute_0x45(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x45: EOR - Zero Page\n");
+    // EOR $NN
+    ++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char byte_to_eor = state->memory[zero_page_addr];
+
+	state->a ^= byte_to_eor;
+
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x46(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x46: LSR - Zero Page\n");
+    // use as follows: LSR $NN
+    // Each of the bits in A or M is shift one place to the right.
+    // The bit that was in bit 0 is shifted into the carry flag. Bit 7 is set to zero.
+    ++state->pc;
+    unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char target_byte = state->memory[zero_page_addr];
+
+    // bit 0 is placed into the carry flag
+    state->flgs->crry_flag = (target_byte & 0x01) == 0x01 ? 1 : 0;
+
+    // perform shift to the right
+    uint8_t res = target_byte >> 1;
+
+    // set bit 7 to zero
+    res &= 0x7f;
+
+    // set zero flag if res is zero
+    state->flgs->zro_flag = (res == 0x00) ? 0x01 : 0x00;
+
+    // set negative flag if bit 7 of the result is set
+    // although the instructions state the above, it seems off since
+    // bit 7 will always be a zero
+    state->flgs->neg_flag = (res & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // store back the result in the specified address
+    state->memory[zero_page_addr] = res;
+	
+}
+
+static void execute_0x48(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x48: PHA - implied\n");
+    // pushes a copy of the accumulator on to the stack
+    int size = 2;
+    unsigned char accumulator_bytes[] = {0x00, state->a};
+    int push_result = push_stack(state, size, accumulator_bytes);
+    if (push_result < 0){
+        // error in call to push stack
+        return;
+    }
+}
+
+static void execute_0x49(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x49: EOR - immediate\n");
+    // EOR #$NN
+    // uses 2 bytes
+    // An exclusive OR is performed, bit by bit, on the accumulator contents
+    // using the contents of a byte of memory.
+    ++state->pc;
+    unsigned char byte_to_eor = state->memory[state->pc];
+
+	state->a ^= byte_to_eor;
+
+    state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x4a(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x4a: LSR A - Accumulator\n");
+    // uses only 1 byte
+    // Each of the bits in A or M is shift one place to the right.
+    // The bit that was in bit 0 is shifted into the carry flag. Bit 7 is set to zero.
+    
+    unsigned char op_result = (state->a >> 1);
+
+    // bit 0 is placed into the carry flag
+    state->flgs->crry_flag = (state->a & 0x01) == 0x01 ? 1 : 0;
+
+    // set bit 7 to zero
+    op_result &= 0x7f;
+
+    // set zero flag if res is zero
+    state->flgs->zro_flag = (op_result == 0x00) ? 0x01 : 0x00;
+
+    // set negative flag if bit 7 of the result is set
+    // although the instructions state the above, it seems off since
+    // bit 7 will always be a zero
+    state->flgs->neg_flag = (op_result & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // store back the result to the accumulator
+    state->a = op_result;
+}
+
+static void execute_0x4c(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x4c: JMP - Absolute\n");
+    // use as follows: JMP $NNNN
+    // instruction is 3 bytes
+    // sets the program counter to the address specified by the operand.
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+
+    // subtract by 1 because the emulate function increments pc by 1
+    // after instruction execution
+	state->pc = addr - 1;
+}
+
+static void execute_0x4d(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x4d: EOR - Absolute\n");
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+
+    unsigned char byte_to_eor = state->memory[addr];
+
+    state->a ^= byte_to_eor;
+
+	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
+}
+
+static void execute_0x4e(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x4e: LSR - Absolute\n");
+    ++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+
+    unsigned char target_byte = state->memory[addr];
+
+    // bit 0 is placed into the carry flag
+    state->flgs->crry_flag = (target_byte & 0x01) == 0x01 ? 1 : 0;
+
+    // perform shift to the right
+    uint8_t res = target_byte >> 1;
+
+    // set bit 7 to zero
+    res &= 0x7f;
+
+    // set zero flag if res is zero
+    state->flgs->zro_flag = (res == 0x00) ? 0x01 : 0x00;
+
+    // set negative flag if bit 7 of the result is set
+    // although the instructions state the above, it seems off since
+    // bit 7 will always be a zero
+    state->flgs->neg_flag = (res & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // store back the result in the specified address
+    state->memory[addr] = res;
+}
+
+static void execute_0x50(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x50: BVC - Relative\n");
+    // BVC $NN
+    ++state->pc;
+    // If the overflow flag is clear then add the relative displacement to the
+    // program counter to cause a branch to a new location.
+    int8_t value = state->memory[state->pc];
+
+    // if flag is clear, then branch out
+    if (state->flgs->of_flag == 0x00){
+        // subtract 1 because pc is incremented in the emulate function
+        state->pc += (value - 1);
+    }
+}
+
+static void execute_0x51(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x51: EOR - Indirect Indexed\n");
+    // EOR ($NN), Y
+    ++state->pc;
+    unsigned char addr_of_addr = state->memory[state->pc];
+    unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]};
+
+    // little endian
+    uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+    addr += state->y;
+
+    unsigned char byte_to_eor = state->memory[addr];
+
+    // modifying register a
+    state->a ^= byte_to_eor;
+
+    state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
+    state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
+}
+
+static void execute_0x55(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x55: EOR - Zero Page, X\n");
+    // EOR $NN, X
+    state->pc++;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char byte_to_eor = state->memory[zero_page_addr];
+
+    // modifying register a
+    state->a ^= byte_to_eor;
+
+    state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
+    state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
+}
+
+static void execute_0x56(State6502* state) {
+    fprintf(stdout, "Executing opcode 0x56: LSR - Zero Page, X\n");
+    state->pc++;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char target_byte = state->memory[zero_page_addr];
+
+    // bit 0 is placed into the carry flag
+    state->flgs->crry_flag = (target_byte & 0x01) == 0x01 ? 1 : 0;
+
+    // perform shift to the right
+    uint8_t res = target_byte >> 1;
+
+    // set bit 7 to zero
+    res &= 0x7f;
+
+    // set zero flag if res is zero
+    state->flgs->zro_flag = (res == 0x00) ? 0x01 : 0x00;
+
+    // set negative flag if bit 7 of the result is set
+    // although the instructions state the above, it seems off since
+    // bit 7 will always be a zero
+    state->flgs->neg_flag = (res & 0x80) == 0x80 ? 0x01 : 0x00;
+
+    // store back the result in the specified address
+    state->memory[zero_page_addr] = res;
 }
 
 // Abraham opcode functions
@@ -1496,30 +1945,76 @@ int Emulate(State6502* state) {
         case 0x2c:
             execute_0x2c(state);
             break;
-        case 0x2d: printf("Not yet implemented\n"); break;
-        case 0x2e: printf("Not yet implemented\n"); break;
-        case 0x30: printf("Not yet implemented\n"); break;
-        case 0x31: printf("Not yet implemented\n"); break;
-        case 0x35: printf("Not yet implemented\n"); break;
-        case 0x36: printf("Not yet implemented\n"); break;
-        case 0x38: printf("Not yet implemented\n"); break;
-        case 0x39: printf("Not yet implemented\n"); break;
-        case 0x3d: printf("Not yet implemented\n"); break;
-        case 0x3e: printf("Not yet implemented\n"); break;
+        case 0x2d:
+            execute_0x2d(state);
+            break;
+        case 0x2e:
+            execute_0x2e(state);
+            break;
+        case 0x30:
+            execute_0x30(state);
+            break;
+        case 0x31:
+            execute_0x31(state);
+            break;
+        case 0x35:
+            execute_0x35(state);
+            break;
+        case 0x36:
+            execute_0x36(state);
+            break;
+        case 0x38:
+            execute_0x38(state);
+            break;
+        case 0x39:
+            execute_0x39(state);
+            break;
+        case 0x3d:
+            execute_0x3d(state);
+            break;
+        case 0x3e:
+            execute_0x3e(state);
+            break;
         case 0x40: printf("Not yet implemented\n"); break;
-        case 0x41: printf("Not yet implemented\n"); break;
-        case 0x45: printf("Not yet implemented\n"); break;
-        case 0x46: printf("Not yet implemented\n"); break;
-        case 0x48: printf("Not yet implemented\n"); break;
-        case 0x49: printf("Not yet implemented\n"); break;
-        case 0x4a: printf("Not yet implemented\n"); break;
-        case 0x4c: printf("Not yet implemented\n"); break;
-        case 0x4d: printf("Not yet implemented\n"); break;
-        case 0x4e: printf("Not yet implemented\n"); break;
-        case 0x50: printf("Not yet implemented\n"); break;
-        case 0x51: printf("Not yet implemented\n"); break;
-        case 0x55: printf("Not yet implemented\n"); break;
-        case 0x56: printf("Not yet implemented\n"); break;
+        case 0x41:
+            execute_0x41(state);
+            break;
+        case 0x45:
+            execute_0x45(state);
+            break;
+        case 0x46:
+            execute_0x46(state);
+            break;
+        case 0x48:
+            execute_0x48(state);
+            break;
+        case 0x49:
+            execute_0x49(state);
+            break;
+        case 0x4a:
+            execute_0x4a(state);
+            break;
+        case 0x4c:
+            execute_0x4c(state);
+            break;
+        case 0x4d:
+            execute_0x4d(state);
+            break;
+        case 0x4e:
+            execute_0x4e(state);
+            break;
+        case 0x50:
+            execute_0x50(state);
+            break;
+        case 0x51:
+            execute_0x51(state);
+            break;
+        case 0x55:
+            execute_0x55(state);
+            break;
+        case 0x56:
+            execute_0x56(state);
+            break;
 
         // Abraham implementation
         case 0x58:
