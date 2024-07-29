@@ -11,7 +11,7 @@
  * the flags, they should be set/cleared as follows:
  * state->flgs->crry_flag = 0x01;
  */
-static void update_processor_status(State6502* state) {
+void update_processor_status(State6502* state) {
 	// As per https://www.nesdev.org/wiki/Status_flags, bit #5 is always set.
 	// It 'has no CPU effect'.
 	state->processor_status = 0x20;
@@ -33,7 +33,7 @@ static void update_processor_status(State6502* state) {
  * by default, we should only push a word (16 bits) at a time, even
  * if only 1 byte needs to be pushed.
  */
-static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
+int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 	uint16_t stack_addr = state->sp | 0x0100;
 
 	for (int i = 0; i < size; ++i) {
@@ -60,7 +60,7 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
  * by default, we should only pop a word (16 bits) at a time, even
  * if only 1 byte needs to be popped.
  */
-static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
+int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 	uint16_t stack_addr = state->sp | 0x0100;
 
 	for (int i = 0; i < size; ++i) {

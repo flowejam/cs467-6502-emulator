@@ -9,7 +9,15 @@
 #include "helpers6502.h"
 #include "opcodes6502.h"
 
-// Run your tests for each opcode here
+/**
+ * 
+ * Instructions: create your tests in this file. Examples of how to set up below.  You will set the flags, memory, and registers as needed for each test.
+ * Execute the opcode function you want to test.  Then assert the final state of the flags, memory, and registers.
+ * Makefile is included in the tests folder in order to compile the tests.
+ * In the terminal, just run "make run" to compile and run the tests. Make sure makefile for tests does not get moved from the tests folder.
+ * If you made changes and want to rerun the tests, run "make clean" to remove the old tests executable and then run "make run" again.
+ * 
+ */
 
 //Abraham's tests
 
