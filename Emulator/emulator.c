@@ -389,6 +389,12 @@ static void execute_0x10(State6502* state) {
 	++state->pc;
 	unsigned char offset = state->memory[state->pc];
 	if (state->flgs->neg_flag == 0x00) {
+		// Note that, as per pages 38-39 of 
+		// https://web.archive.org/web/20221112230813if_/http://archive.6502.org/books/mcs6500_family_programming_manual.pdf
+		// the offset is added to the value of the automatically incremented 
+		// program counter (i.e., the PC value after reading the offset value).
+		// It is therefore not necessary to make any adjustment here (as is done
+		// with the JMP instruction).
 		uint16_t new_pc = apply_signed_offset_in_unsigned_char(state->pc, offset);
 		state->pc = new_pc;
 	}
@@ -659,18 +665,18 @@ static void execute_0x88(State6502* state) {
 	--state->y;
 
 	state->flgs->zro_flag = state->y == 0x00 ? 1 : 0; 
-	state->flgs->neg_flag = state->y & 0x80 == 0x80 ? 1 : 0;
+	state->flgs->neg_flag = (state->y & 0x80) == 0x80 ? 1 : 0;
 }
 
 static void execute_0x8a(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x88: TXA - Implied\n");
+	fprintf(stdout, "Executing opcode 0x8a: TXA - Implied\n");
 	state->a = state->x;
 	state->flgs->zro_flag = state->a == 0x00 ? 1 : 0; 
-	state->flgs->neg_flag = state->a & 0x80 == 0x80 ? 1 : 0;
+	state->flgs->neg_flag = (state->a & 0x80) == 0x80 ? 1 : 0;
 }
 
 static void execute_0x8c(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x86: STY - Absolute\n");
+	fprintf(stdout, "Executing opcode 0x8c: STY - Absolute\n");
 	++state->pc;
 	unsigned char byte1 = state->memory[state->pc];
 	++state->pc;
@@ -680,7 +686,76 @@ static void execute_0x8c(State6502* state) {
 }
 
 static void execute_0x8d(State6502* state) {
-	// TODO
+	fprintf(stdout, "Executing opcode 0x8d: STA - Absolute\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+	uint16_t addr = (byte2 << 8) | byte1;
+	state->memory[addr] = state->a;
+}
+
+static void execute_0x8e(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x8e: STX - Absolute\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+	uint16_t addr = (byte2 << 8) | byte1;
+	state->memory[addr] = state->x;
+}
+
+static void execute_0x90(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x90: BCC - Relative\n");
+	++state->pc;
+	unsigned char offset = state->memory[state->pc];
+	if (state->flgs->crry_flag == 0x00) {
+		// Note that, as per pages 38-39 of 
+		// https://web.archive.org/web/20221112230813if_/http://archive.6502.org/books/mcs6500_family_programming_manual.pdf
+		// the offset is added to the value of the automatically incremented 
+		// program counter (i.e., the PC value after reading the offset value).
+		// It is therefore not necessary to make any adjustment here (as is done
+		// with the JMP instruction).
+		uint16_t new_pc = apply_signed_offset_in_unsigned_char(state->pc, offset);
+		state->pc = new_pc;
+	}
+}
+
+static void execute_0x91(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x91: STA - (Indirect), Y\n");
+	++state->pc;
+	unsigned char addr_of_addr = state->memory[state->pc];
+	unsigned char addr_bytes[2] = {state->memory[addr_of_addr], state->memory[addr_of_addr + 1]};
+	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];  
+	addr += state->y;
+	state->memory[addr] = state->a;
+}
+
+static void execute_0x94(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x94: STY - Zero Page, X\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	state->memory[zero_page_addr] = state->y;
+}
+
+static void execute_0x95(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x95: STA - Zero Page, X\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
+	state->memory[zero_page_addr] = state->a;
+}
+
+static void execute_0x96(State6502* state) {
+	// Note that the wrap around effect occurs here, just as it does with 
+	// Zero Page, X addressing mode. There is no indication to the contrary from 
+	// the MCS6500 programming manual.
+	fprintf(stdout, "Executing opcode 0x96: STX - Zero Page, Y\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	zero_page_addr = (zero_page_addr + state->y) & 0xFF;
+	state->memory[zero_page_addr] = state->x;
 }
 
 
@@ -692,11 +767,13 @@ static void execute_0x2c(State6502* state) {
     // is not kept. Bits 7 and 6 of the value from memory are copied into the N and V flags.
     // BIT $NNNN
     ++state->pc;
+	
     // byte1 has the lower memory address
     unsigned char byte1 = state->memory[state->pc];
     ++state->pc;
     unsigned char byte2 = state->memory[state->pc];
 
+	// TODO: correct this, since LSB is byte1  
     // 16 bit addresses are stored in little endian order
     uint16_t addr = (byte1 << 8) | byte2;
 
@@ -2149,12 +2226,24 @@ int Emulate(State6502* state) {
         case 0x8d: 
             execute_0x8d(state);
 			break;
-        case 0x8e: printf("Not yet implemented\n"); break;
-        case 0x90: printf("Not yet implemented\n"); break;
-        case 0x91: printf("Not yet implemented\n"); break;
-        case 0x94: printf("Not yet implemented\n"); break;
-        case 0x95: printf("Not yet implemented\n"); break;
-        case 0x96: printf("Not yet implemented\n"); break;
+        case 0x8e: 
+            execute_0x8e(state);
+			break;
+        case 0x90: 
+            execute_0x90(state);
+			break;
+        case 0x91: 
+            execute_0x91(state);
+			break;
+        case 0x94: 
+            execute_0x94(state);
+			break;
+        case 0x95: 
+            execute_0x95(state);
+			break;
+        case 0x96: 
+            execute_0x96(state);
+			break;
         case 0x98: printf("Not yet implemented\n"); break;
         case 0x99: printf("Not yet implemented\n"); break;
         case 0x9a: printf("Not yet implemented\n"); break;
@@ -2228,8 +2317,8 @@ int Emulate(State6502* state) {
     }
 	
 	// If pc is 0xFFFF at this point, an increment will cause an overflow, 
-	// and pc will be set to 0x0000, which we may not want. For now,
-	// we get the program to exit in this case.
+	// and pc will be set to 0x0000. For now, we get the program to exit in 
+	// this case, but we will want to remove this.
 	if (state->pc == 0xFFFF) {
 		state->exit_prog = true;
 	}
