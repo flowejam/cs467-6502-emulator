@@ -692,11 +692,13 @@ static void execute_0x2c(State6502* state) {
     // is not kept. Bits 7 and 6 of the value from memory are copied into the N and V flags.
     // BIT $NNNN
     ++state->pc;
+	
     // byte1 has the lower memory address
     unsigned char byte1 = state->memory[state->pc];
     ++state->pc;
     unsigned char byte2 = state->memory[state->pc];
 
+	// TODO: correct this, since LSB is byte1  
     // 16 bit addresses are stored in little endian order
     uint16_t addr = (byte1 << 8) | byte2;
 
