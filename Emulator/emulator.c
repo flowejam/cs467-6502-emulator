@@ -645,6 +645,45 @@ static void execute_0x2a(State6502* state) {
 	state->a = op_result;
 }
 
+static void execute_0x86(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x86: STX - Zero Page\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	state->memory[zero_page_addr] = state->x;
+}
+
+static void execute_0x88(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x88: DEY - Implied\n");
+
+	// Y register is decremented
+	--state->y;
+
+	state->flgs->zro_flag = state->y == 0x00 ? 1 : 0; 
+	state->flgs->neg_flag = state->y & 0x80 == 0x80 ? 1 : 0;
+}
+
+static void execute_0x8a(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x88: TXA - Implied\n");
+	state->a = state->x;
+	state->flgs->zro_flag = state->a == 0x00 ? 1 : 0; 
+	state->flgs->neg_flag = state->a & 0x80 == 0x80 ? 1 : 0;
+}
+
+static void execute_0x8c(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x86: STY - Absolute\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+	uint16_t addr = (byte2 << 8) | byte1;
+	state->memory[addr] = state->y;
+}
+
+static void execute_0x8d(State6502* state) {
+	// TODO
+}
+
+
 // Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
 static void execute_0x2c(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x2c: BIT - Absolute\n");
@@ -1831,21 +1870,22 @@ static void execute_0x85(State6502* state) {
     state->pc++;
 }
 
-static void execute_0x86(State6502* state) {
-    // Opccode 0x86: STX - Store X Register Zero Page
-    // https://www.nesdev.org/obelisk-6502-guide/reference.html#STX
-    fprintf(stdout, "Executing opcode 0x86: STX\n");
-
-    // Fetch the address for the next byte
-    uint16_t addr = state->memory[state->pc + 1];
-    state->pc++;
-
-    // Store the value in the X register at the address
-    state->memory[addr] = state->x;
-
-    // advance the program counter to the next instruction
-    state->pc++;
-}
+// TODO: remove commented out code
+//static void execute_0x86(State6502* state) {
+//    // Opccode 0x86: STX - Store X Register Zero Page
+//    // https://www.nesdev.org/obelisk-6502-guide/reference.html#STX
+//    fprintf(stdout, "Executing opcode 0x86: STX\n");
+//
+//    // Fetch the address for the next byte
+//    uint16_t addr = state->memory[state->pc + 1];
+//    state->pc++;
+//
+//    // Store the value in the X register at the address
+//    state->memory[addr] = state->x;
+//
+//    // advance the program counter to the next instruction
+//    state->pc++;
+//}
 // end of Abraham's opcodes up to 0x86
 
 // ================== end of opcode functions ===============================
@@ -2094,11 +2134,21 @@ int Emulate(State6502* state) {
             break;
         
         // James implementation
-        case 0x86: printf("Not yet implemented\n"); break;
-        case 0x88: printf("Not yet implemented\n"); break;
-        case 0x8a: printf("Not yet implemented\n"); break;
-        case 0x8c: printf("Not yet implemented\n"); break;
-        case 0x8d: printf("Not yet implemented\n"); break;
+        case 0x86: 
+            execute_0x86(state);
+			break;
+        case 0x88: 
+            execute_0x88(state);
+			break;
+        case 0x8a: 
+            execute_0x8a(state);
+			break;
+        case 0x8c: 
+            execute_0x8c(state);
+			break;
+        case 0x8d: 
+            execute_0x8d(state);
+			break;
         case 0x8e: printf("Not yet implemented\n"); break;
         case 0x90: printf("Not yet implemented\n"); break;
         case 0x91: printf("Not yet implemented\n"); break;
