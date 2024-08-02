@@ -758,6 +758,150 @@ static void execute_0x96(State6502* state) {
 	state->memory[zero_page_addr] = state->x;
 }
 
+static void execute_0x98(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x98: TYA - Implied\n");
+	state->a = state->y;
+	state->flgs->zro_flag = state->a == 0x00 ? 1 : 0; 
+	state->flgs->neg_flag = (state->a & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0x99(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x99: STA - Absolute, Y\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->y;
+
+	state->memory[addr] = state->a;
+}
+
+static void execute_0x9a(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x9a: TXS - Implied\n");
+	state->sp = state->x;
+}
+
+static void execute_0x9d(State6502* state) {
+	fprintf(stdout, "Executing opcode 0x9d: STA - Absolute, X\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	addr += state->x;
+
+	state->memory[addr] = state->a;
+}
+
+static void execute_0xa0(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa0: LDY - Immediate\n");
+	++state->pc;
+	unsigned char byte_to_load = state->memory[state->pc];
+	state->y = byte_to_load;
+
+	state->flgs->zro_flag = (state->y == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->y & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xa1(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa1: LDA - (Indirect, X)\n");
+
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	uint16_t addr_of_addr = (zero_page_addr + state->x) & 0xFF;
+	unsigned char addr_bytes[] = {state->memory[addr_of_addr],state->memory[++addr_of_addr]};
+	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
+	unsigned char byte_to_load = state->memory[addr];
+
+	state->a = byte_to_load;
+	state->flgs->zro_flag = (state->a == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->a & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xa2(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa2: LDX - Immediate\n");
+	++state->pc;
+	unsigned char byte_to_load = state->memory[state->pc];
+	state->x = byte_to_load;
+
+	state->flgs->zro_flag = (state->x == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->x & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xa4(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa4: LDY - Zero Page\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char byte_to_load = state->memory[zero_page_addr];
+	state->y = byte_to_load;
+	state->flgs->zro_flag = (state->y == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->y & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xa5(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa5: LDA - Zero Page\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char byte_to_load = state->memory[zero_page_addr];
+	state->a = byte_to_load;
+	state->flgs->zro_flag = (state->a == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->a & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xa6(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa6: LDX - Zero Page\n");
+	++state->pc;
+	unsigned char zero_page_addr = state->memory[state->pc];
+	unsigned char byte_to_load = state->memory[zero_page_addr];
+	state->x = byte_to_load;
+	state->flgs->zro_flag = (state->x == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->x & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xa8(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa8: TAY - Implied\n");
+	state->y = state->a;
+	state->flgs->zro_flag = state->y == 0x00 ? 1 : 0; 
+	state->flgs->neg_flag = (state->y & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xa9(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xa9: LDA - Immediate\n");
+	++state->pc;
+	unsigned char byte_to_load = state->memory[state->pc];
+	state->a = byte_to_load;
+	state->flgs->zro_flag = state->a == 0x00 ? 1 : 0; 
+	state->flgs->neg_flag = (state->a & 0x80) == 0x80 ? 1 : 0;
+
+}
+
+static void execute_0xaa(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xaa: TAX - Implied\n");
+	state->x = state->a;
+	state->flgs->zro_flag = state->x == 0x00 ? 1 : 0; 
+	state->flgs->neg_flag = (state->x & 0x80) == 0x80 ? 1 : 0;
+}
+
+static void execute_0xac(State6502* state) {
+	fprintf(stdout, "Executing opcode 0xac: LDY - Absolute\n");
+	++state->pc;
+	unsigned char byte1 = state->memory[state->pc];
+	++state->pc;
+	unsigned char byte2 = state->memory[state->pc];
+
+	// 16 bit addresses are stored in little endian order
+	uint16_t addr = (byte2 << 8) | byte1;
+	unsigned char byte_to_load = state->memory[addr];
+	state->y = byte_to_load;
+	state->flgs->zro_flag = (state->y == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->y & 0x80) == 0x80 ? 1 : 0;
+}
+
 
 // Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
 static void execute_0x2c(State6502* state) {
@@ -2244,20 +2388,48 @@ int Emulate(State6502* state) {
         case 0x96: 
             execute_0x96(state);
 			break;
-        case 0x98: printf("Not yet implemented\n"); break;
-        case 0x99: printf("Not yet implemented\n"); break;
-        case 0x9a: printf("Not yet implemented\n"); break;
-        case 0x9d: printf("Not yet implemented\n"); break;
-        case 0xa0: printf("Not yet implemented\n"); break;
-        case 0xa1: printf("Not yet implemented\n"); break;
-        case 0xa2: printf("Not yet implemented\n"); break;
-        case 0xa4: printf("Not yet implemented\n"); break;
-        case 0xa5: printf("Not yet implemented\n"); break;
-        case 0xa6: printf("Not yet implemented\n"); break;
-        case 0xa8: printf("Not yet implemented\n"); break;
-        case 0xa9: printf("Not yet implemented\n"); break;
-        case 0xaa: printf("Not yet implemented\n"); break;
-        case 0xac: printf("Not yet implemented\n"); break;
+        case 0x98: 
+            execute_0x98(state);
+			break;
+        case 0x99: 
+            execute_0x99(state);
+			break;
+        case 0x9a: 
+            execute_0x9a(state);
+			break;
+        case 0x9d: 
+            execute_0x9d(state);
+			break;
+        case 0xa0: 
+            execute_0xa0(state);
+			break;
+        case 0xa1: 
+            execute_0xa1(state);
+			break;
+        case 0xa2: 
+            execute_0xa2(state);
+			break;
+        case 0xa4: 
+            execute_0xa4(state);
+			break;
+        case 0xa5: 
+            execute_0xa5(state);
+			break;
+        case 0xa6: 
+            execute_0xa6(state);
+			break;
+        case 0xa8: 
+            execute_0xa8(state);
+			break;
+        case 0xa9: 
+            execute_0xa9(state);
+			break;
+        case 0xaa: 
+            execute_0xaa(state);
+			break;
+        case 0xac: 
+            execute_0xac(state);
+			break;
 
         // Chris implementation
         case 0xad: printf("Not yet implemented\n"); break;
