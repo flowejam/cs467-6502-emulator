@@ -2690,7 +2690,9 @@ int Emulate(State6502* state) {
         case 0x3e:
             execute_0x3e(state);
             break;
-        case 0x40: printf("Not yet implemented\n"); break;
+        case 0x40:
+            execute_0x40(state);
+            break;
         case 0x41:
             execute_0x41(state);
             break;
