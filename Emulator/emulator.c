@@ -919,7 +919,7 @@ static void execute_0x2c(State6502* state) {
 
 	// TODO: correct this, since LSB is byte1  
     // 16 bit addresses are stored in little endian order
-    uint16_t addr = (byte1 << 8) | byte2;
+    uint16_t addr = (byte2 << 8) | byte1;
 
     unsigned char byte_to_and = state->memory[addr];
 
@@ -944,7 +944,7 @@ static void execute_0x2d(State6502* state) {
     unsigned char byte2 = state->memory[state->pc];
 
     // 16 bit addresses are stored in little endian order
-    uint16_t addr = (byte1 << 8) | byte2;
+    uint16_t addr = (byte2 << 8) | byte1;
 
     unsigned char byte_to_and = state->memory[addr];
 
@@ -971,7 +971,7 @@ static void execute_0x2e(State6502* state) {
     unsigned char byte2 = state->memory[state->pc];
 
     // 16 bit addresses are stored in little endian order
-    uint16_t addr = (byte1 << 8) | byte2;
+    uint16_t addr = (byte2 << 8) | byte1;
 
     unsigned char target_byte = state->memory[addr];
     unsigned char res = (target_byte << 1);
@@ -2108,6 +2108,111 @@ static void execute_0x85(State6502* state) {
 //    state->pc++;
 //}
 // end of Abraham's opcodes up to 0x86
+
+// Chris remaining opcode implementation ///////////////////////////////////////////////////////////////////////////////
+static void execute_0xad(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xad: ???\n");
+}
+
+static void execute_0xae(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xae: ???\n");
+}
+
+static void execute_0xb0(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xb0: ???\n");
+}
+
+static void execute_0xb1(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xb1: ???\n");
+}
+
+static void execute_0xb4(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xb4: ???\n");
+}
+
+static void execute_0xb5(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xb5: ???\n");
+}
+
+static void execute_0xb6(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xb6: ???\n");
+}
+
+static void execute_0xb8(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xb8: ???\n");
+}
+
+static void execute_0xb9(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xb9: ???\n");
+}
+
+static void execute_0xba(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xba: ???\n");
+}
+
+static void execute_0xbc(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xbc: ???\n");
+}
+
+static void execute_0xbd(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xbd: ???\n");
+}
+
+static void execute_0xbe(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xbe: ???\n");
+}
+
+static void execute_0xc0(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xc0: ???\n");
+}
+
+static void execute_0xc1(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xc1: ???\n");
+}
+
+static void execute_0xc4(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xc4: ???\n");
+}
+
+static void execute_0xc5(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xc5: ???\n");
+}
+
+static void execute_0xc6(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xc6: ???\n");
+}
+
+static void execute_0xc8(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xc8: ???\n");
+}
+
+static void execute_0xc9(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xc9: ???\n");
+}
+
+static void execute_0xca(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xca: ???\n");
+}
+
+static void execute_0xcc(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xcc: ???\n");
+}
+
+static void execute_0xcd(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xcd: ???\n");
+}
+
+static void execute_0xce(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xce: ???\n");
+}
+
+static void execute_0xd0(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xd0: ???\n");
+}
+
+static void execute_0xd1(State6502* state) {
+    fprintf(stdout, "Executing opcode 0xd1: ???\n");
+}
 
 // ================== end of opcode functions ===============================
 
