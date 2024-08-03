@@ -1195,6 +1195,33 @@ static void execute_0x40(State6502* state) {
     // This is a 1 byte instruction
     // The RTI instruction is used at the end of an interrupt processing routine.
     // It pulls the processor flags from the stack followed by the program counter.
+    // sets flags and pc to what they were before the interrupt took place
+
+    unsigned char popped_processor_flag_bytes[2] = {0};
+
+	int pop_result = pop_stack(state, 2, popped_processor_flag_bytes);
+	if (pop_result < 0) {
+		// error in call to pop_stack
+		return;
+	}
+
+    // move byte from what was in stack to processor status register
+	state->processor_status = popped_processor_flag_bytes[0];
+    // update flags from processor register
+	update_flags_from_processor_status(state);
+
+    // pull program counter from the stack
+    unsigned char pc_bytes[2] = {0};
+	int pop_result = pop_stack(state, 2, pc_bytes);
+	if (pop_result < 0) {
+		// error in call to pop_stack
+		return;
+	}
+
+    // resets the program counter to what it was before the interrupt
+    // since the BRK opcode pushed (pc + 2) to stack, pc must be decremented by 2
+    // when pulled
+    state->pc = pc_bytes[0] - 2;
 }
 
 static void execute_0x41(State6502* state) {
