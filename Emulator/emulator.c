@@ -3111,6 +3111,10 @@ int main(int argc, char* argv[]) {
 	// cycles to pass. This is related to the PPU and the memory location $2002 
 	// is used for this. Since we are only emulating the CPU, we will set this
 	// location to 0x80 to avoid an infinite loop.  
+	// See the references here: 
+	// 1) https://www.nesdev.org/wiki/PPU_power_up_state
+	// 2) https://www.nesdev.org/wiki/Init_code
+	// 3) falling.asm code, lines 229 & 212-215: https://github.com/xram64/falling-nes/blob/master/source/falling.asm
 	state_cpu.memory[0x2002] = 0x80;
 	
 	state_cpu.a = 0;
