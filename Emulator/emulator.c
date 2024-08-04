@@ -924,15 +924,13 @@ static void execute_0x2c(State6502* state) {
     unsigned char byte_to_and = state->memory[addr];
 
     // if the result of the ANDing is zero, set zero flag
-    if ((byte_to_and & state->a) == 0x00) {
-        state->flgs->zro_flag = 1;
-    }
+    state->flgs->zro_flag = ((byte_to_and & state->a) == 0x00) ? 1 : 0;
 
     // set overflow flag to bit 6 of the memory value
-    state->flgs->of_flag = (byte_to_and & 0x40) >> 7;
+    state->flgs->of_flag = (byte_to_and & 0x40) >> 6;
 
     // set neg flag to bit 7 of the memory value
-    state->flgs->neg_flag = (byte_to_and & 0x80) >> 8;
+    state->flgs->neg_flag = (byte_to_and & 0x80) >> 7;
 }
 
 static void execute_0x2d(State6502* state) {
@@ -951,15 +949,8 @@ static void execute_0x2d(State6502* state) {
     // AND the contents of register A
     state->a &= byte_to_and;
 
-    // set zero flag if A is equal to zero
-    if (state->a == 0x00){
-        state->flgs->zro_flag = 1;
-    }
-
-    // set negative flag if bit 7 is set
-    if ((state->a & 0x80) == 0x80) {
-        state->flgs->neg_flag = 1;
-    }
+	state->flgs->zro_flag = (state->a == 0) ? 1 : 0;
+	state->flgs->neg_flag = (state->a & 0x80) == 0x80 ? 1 : 0;
 }
 
 static void execute_0x2e(State6502* state) {
@@ -988,13 +979,8 @@ static void execute_0x2e(State6502* state) {
     state->memory[addr] = res;
     state->flgs->crry_flag = old_bit7;
 
-    if (res == 0x00) {
-        state->flgs->zro_flag = 0x01;
-    }
-
-    if ((res & 0x80) == 0x80) {
-        state->flgs->neg_flag = 0x01;
-    }
+	state->flgs->zro_flag = (res == 0) ? 1 : 0;
+	state->flgs->neg_flag = (res & 0x80) == 0x80 ? 1 : 0;
 
 }
 
@@ -1212,7 +1198,7 @@ static void execute_0x40(State6502* state) {
 
     // pull program counter from the stack
     unsigned char pc_bytes[2] = {0};
-	int pop_result = pop_stack(state, 2, pc_bytes);
+	pop_result = pop_stack(state, 2, pc_bytes);
 	if (pop_result < 0) {
 		// error in call to pop_stack
 		return;
@@ -2269,7 +2255,7 @@ static void execute_0xb9(State6502* state) {
 	// 16 bit addresses are stored in little endian order
 	uint16_t addr = (byte2 << 8) | byte1;
 	addr += state->y;
-    target_byte = state->memory[addr];
+    unsigned char target_byte = state->memory[addr];
 
     state->a = target_byte;
 
@@ -2298,7 +2284,7 @@ static void execute_0xbc(State6502* state) {
 	// 16 bit addresses are stored in little endian order
 	uint16_t addr = (byte2 << 8) | byte1;
 	addr += state->x;
-    target_byte = state->memory[addr];
+    unsigned char target_byte = state->memory[addr];
 
     state->y = target_byte;
 
@@ -2316,7 +2302,7 @@ static void execute_0xbd(State6502* state) {
 	// 16 bit addresses are stored in little endian order
 	uint16_t addr = (byte2 << 8) | byte1;
 	addr += state->x;
-    target_byte = state->memory[addr];
+    unsigned char target_byte = state->memory[addr];
 
     state->a = target_byte;
 
@@ -2335,7 +2321,7 @@ static void execute_0xbe(State6502* state) {
 	// 16 bit addresses are stored in little endian order
 	uint16_t addr = (byte2 << 8) | byte1;
 	addr += state->y;
-    target_byte = state->memory[addr];
+    unsigned char target_byte = state->memory[addr];
 
     state->x = target_byte;
 
@@ -2402,9 +2388,6 @@ static void execute_0xc5(State6502* state) {
 	unsigned char zero_page_addr = state->memory[state->pc];
 	unsigned char target_byte = state->memory[zero_page_addr];
 
-    unsigned char target_byte = state->memory[addr];
-
-
     state->flgs->crry_flag = (state->a >= target_byte) ? 1 : 0;
     state->flgs->zro_flag = (state->a == target_byte) ? 1 : 0;
 
@@ -2422,13 +2405,11 @@ static void execute_0xc6(State6502* state) {
 	unsigned char zero_page_addr = state->memory[state->pc];
 	unsigned char target_byte = state->memory[zero_page_addr];
 
-    unsigned char target_byte = state->memory[addr];
-
     // decrement
     target_byte -= 1;
 
     // save result back in memory
-    state->memory[addr] = target_byte;
+    state->memory[zero_page_addr] = target_byte;
 
     // update flags
     state->flgs->zro_flag = (target_byte == 0) ? 1 : 0;
