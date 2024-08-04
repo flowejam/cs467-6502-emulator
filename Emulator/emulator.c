@@ -162,6 +162,7 @@ static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 	uint16_t stack_addr = state->sp | 0x0100;
 
 	for (int i = 0; i < size; ++i) {
+		++stack_addr;
 		// Note that the 6502 doesn't detect stack underflow. I have implemented
 		// it here for debugging purposes.
 		if (stack_addr > 0x01FF) {
@@ -170,7 +171,6 @@ static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 			return -1;
 		}
 		byte_arr[i] = state->memory[stack_addr];
-		++stack_addr;
 	}
 	state->sp = stack_addr & 0x00FF;
 	return 0;
@@ -185,7 +185,7 @@ static void execute_0x00(State6502* state) {
 	// more details on the BRK instruction can be found here: 
 	// http://www.6502.org/tutorials/interrupts.html#2.2
 	
-	fprintf(stdout, "Executing opcode 0x00: BRK\n");
+	fprintf(stdout, "0x%.04X Executing opcode 0x00: BRK\n", (state->pc));
 	
 	// push the program counter to the stack
 	// according to https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors,
@@ -543,6 +543,7 @@ static void execute_0x20(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x20: JSR - Absolute\n");
 	// The address of the next instruction (pc + 3) - 1 is pushed to the stack.
 	uint16_t saved_addr = state->pc + 3 - 1;
+	fprintf(stdout, "JSR pushed address 0x%04X to the stack.\n", saved_addr);
 	int size = 2;
 	unsigned char bytes[] = {(saved_addr >> 8), (saved_addr & 0xFF)};
 	int push_result = push_stack(state, size, bytes);
@@ -1605,10 +1606,7 @@ static void execute_0x60(State6502* state) {
         return;
     }
     state->pc = pc_bytes[0] | (pc_bytes[1] << 8);
-
-    // Increment the program counter to the next instruction
-    state->pc++;
-
+	fprintf(stdout, "RTS popped address 0x%04X from the stack.\n", state->pc);
 }
 
 static void execute_0x61(State6502* state) {
@@ -1974,7 +1972,7 @@ static void execute_0x76(State6502* state) {
 static void execute_0x78(State6502* state) {
     // Opccode 0x78: SEI - Set Interrupt Disable Flag
     // https://www.nesdev.org/obelisk-6502-guide/reference.html#SEI
-    fprintf(stdout, "Executing opcode 0x78: SEI\n");
+    fprintf(stdout, "0x%.04X Executing opcode 0x78: SEI\n", state->pc);
 
     // Set the interrupt disable flag
     state->flgs->inter_disable_flag = 0x01;
