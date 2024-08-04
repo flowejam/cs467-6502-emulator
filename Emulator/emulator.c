@@ -1498,8 +1498,6 @@ static void execute_0x58(State6502* state) {
     fprintf(stdout, "Executing opcode 0x58: CLI\n");
     // clearing the interrupt disable flag
     state->flgs->inter_disable_flag = 0x00;
-    // advance the program counter to the next instruction
-    state->pc++;
 
 }
 
@@ -1514,7 +1512,7 @@ static void execute_0x59(State6502* state) {
     state->pc += 2;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->y;
+    uint16_t effective_addr = (base_addr + state->y) & 0xFFFF;
 
     // Perform the EOR operation
     uint8_t value = state->memory[effective_addr];
@@ -1526,8 +1524,6 @@ static void execute_0x59(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 
 }
 
@@ -1542,7 +1538,7 @@ static void execute_0x5d(State6502* state) {
     state->pc += 2;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->x;
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
 
     // Perform the EOR operation
     uint8_t value = state->memory[effective_addr];
@@ -1554,8 +1550,6 @@ static void execute_0x5d(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 
 }
 
@@ -1570,7 +1564,7 @@ static void execute_0x5e(State6502* state) {
     state->pc += 2;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->x;
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
 
     // Perform the LSR operation
     uint8_t value = state->memory[effective_addr];
@@ -1586,9 +1580,6 @@ static void execute_0x5e(State6502* state) {
     state->memory[effective_addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
-
 }
 
 static void execute_0x60(State6502* state) {
@@ -1606,7 +1597,7 @@ static void execute_0x60(State6502* state) {
         return;
     }
     state->pc = pc_bytes[0] | (pc_bytes[1] << 8);
-	fprintf(stdout, "RTS popped address 0x%04X from the stack.\n", state->pc);
+
 }
 
 static void execute_0x61(State6502* state) {
@@ -1619,7 +1610,7 @@ static void execute_0x61(State6502* state) {
     state->pc++;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->x;
+    uint16_t effective_addr = (base_addr + state->x) & 0xFF;
 
     // Fetch the low byte of the effective address
     uint16_t low_byte = state->memory[effective_addr];
@@ -1645,8 +1636,6 @@ static void execute_0x61(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x65(State6502* state) {
@@ -1672,8 +1661,6 @@ static void execute_0x65(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x66(State6502* state) {
@@ -1701,8 +1688,7 @@ static void execute_0x66(State6502* state) {
     state->memory[addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x68(State6502* state) {
@@ -1727,8 +1713,6 @@ static void execute_0x68(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x69(State6502* state) {
@@ -1754,8 +1738,6 @@ static void execute_0x69(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x6a(State6502* state) {
@@ -1776,8 +1758,7 @@ static void execute_0x6a(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x6c(State6502* state) {
@@ -1790,7 +1771,7 @@ static void execute_0x6c(State6502* state) {
     state->pc += 2;
 
     // Jump to the new address
-    state->pc = addr - 1;
+    state->pc = addr;
 
 }
 
@@ -1820,8 +1801,6 @@ static void execute_0x6d(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x6e(State6502* state) {
@@ -1850,8 +1829,7 @@ static void execute_0x6e(State6502* state) {
     state->memory[base_addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x70(State6502* state) {
@@ -1869,8 +1847,6 @@ static void execute_0x70(State6502* state) {
         state->pc += value;
     }
 
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x71(State6502* state) {
@@ -1883,7 +1859,7 @@ static void execute_0x71(State6502* state) {
     state->pc++;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->y;
+    uint16_t effective_addr = (base_addr + state->y) & 0xFF;
 
     // Fetch the low byte of the effective address
     uint16_t low_byte = state->memory[effective_addr];
@@ -1909,8 +1885,6 @@ static void execute_0x71(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x75(State6502* state) {
@@ -1936,8 +1910,6 @@ static void execute_0x75(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x76(State6502* state) {
@@ -1965,19 +1937,16 @@ static void execute_0x76(State6502* state) {
     state->memory[addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x78(State6502* state) {
     // Opccode 0x78: SEI - Set Interrupt Disable Flag
     // https://www.nesdev.org/obelisk-6502-guide/reference.html#SEI
-    fprintf(stdout, "0x%.04X Executing opcode 0x78: SEI\n", state->pc);
+    fprintf(stdout, "Executing opcode 0x78: SEI\n");
 
     // Set the interrupt disable flag
     state->flgs->inter_disable_flag = 0x01;
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x79(State6502* state) {
@@ -2009,8 +1978,7 @@ static void execute_0x79(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x7d(State6502* state) {
@@ -2042,8 +2010,7 @@ static void execute_0x7d(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x7e(State6502* state) {
@@ -2075,8 +2042,7 @@ static void execute_0x7e(State6502* state) {
     state->memory[effective_addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x81(State6502* state) {
@@ -2093,13 +2059,19 @@ static void execute_0x81(State6502* state) {
 
     // Store the value in the accumulator at the effective address
     state->memory[effective_addr] = state->a;
-
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x84(State6502* state) {
-	// TODO
+    // Opccode 0x84: STY - Store Y Register Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#STY
+    fprintf(stdout, "Executing opcode 0x84: STY\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Store the value in the Y register at the address
+    state->memory[addr] = state->y;
 }
 
 static void execute_0x85(State6502* state) {
@@ -2114,27 +2086,21 @@ static void execute_0x85(State6502* state) {
     // Store the value in the accumulator at the address
     state->memory[addr] = state->a;
 
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
-// TODO: remove commented out code
-//static void execute_0x86(State6502* state) {
-//    // Opccode 0x86: STX - Store X Register Zero Page
-//    // https://www.nesdev.org/obelisk-6502-guide/reference.html#STX
-//    fprintf(stdout, "Executing opcode 0x86: STX\n");
-//
-//    // Fetch the address for the next byte
-//    uint16_t addr = state->memory[state->pc + 1];
-//    state->pc++;
-//
-//    // Store the value in the X register at the address
-//    state->memory[addr] = state->x;
-//
-//    // advance the program counter to the next instruction
-//    state->pc++;
-//}
-// end of Abraham's opcodes up to 0x86
+static void execute_0x86(State6502* state) {
+    // Opccode 0x86: STX - Store X Register Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#STX
+    fprintf(stdout, "Executing opcode 0x86: STX\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Store the value in the X register at the address
+    state->memory[addr] = state->x;
+
+}
 
 // Chris remaining opcode implementation /////////xyz//////////////////////////////////////////////////////////////////////
 static void execute_0xad(State6502* state) {
@@ -2558,6 +2524,592 @@ static void execute_0xd1(State6502* state) {
     state->flgs->neg_flag = (res & 0x80) == 0x80 ? 1 : 0;
 }
 
+// Abraham remaining opcodes
+static void execute_0xd5(State6502* state) {
+    // Opccode 0xD5: CMP - Compare Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
+    fprintf(stdout, "Executing opcode 0xD5: CMP\n");
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the CMP operation
+    uint16_t result = state->a - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xd6(State6502* state) {
+    // Opccode 0xD6: DEC - Decrement Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC
+    fprintf(stdout, "Executing opcode 0xD6: DEC\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the DEC operation
+    uint8_t value = state->memory[addr];
+    value--;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xd8(State6502* state) {
+    // Opccode 0xD8: CLD - Clear Decimal Mode
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CLD
+    fprintf(stdout, "Executing opcode 0xD8: CLD\n");
+
+    // Clear the decimal mode flag
+    state->flgs->dec_flag = 0x00;
+}
+
+static void execute_0xd9(State6502* state) {
+    // Opccode 0xD9: CMP - Compare Absolute Y
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
+    fprintf(stdout, "Executing opcode 0xD9: CMP\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->y) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the CMP operation
+    uint16_t result = state->a - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xdd(State6502* state) {
+    // Opccode 0xDD: CMP - Compare Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
+    fprintf(stdout, "Executing opcode 0xDD: CMP\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the CMP operation
+    uint16_t result = state->a - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xde(State6502* state) {
+    // Opccode 0xDE: DEC - Decrement Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC
+    fprintf(stdout, "Executing opcode 0xDE: DEC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Perform the DEC operation
+    uint8_t value = state->memory[effective_addr];
+    value--;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[effective_addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe0(State6502* state) {
+    // Opccode 0xE0: CPX - Compare X Register Immediate
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
+    fprintf(stdout, "Executing opcode 0xE0: CPX\n");
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the CPX operation
+    uint16_t result = state->x - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->x >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe1(State6502* state) {
+    // Opccode 0xE1: SBC - Subtract with Carry Indirect X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xE1: SBC\n");
+
+    // Fetch the base address for the next byte
+    uint16_t base_addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Calculate the effective address
+    uint16_t effective_addr = base_addr + state->x;
+
+    // Fetch the low byte of the effective address
+    uint16_t low_byte = state->memory[effective_addr];
+    // Fetch the high byte of the effective address
+    uint16_t high_byte = state->memory[effective_addr + 1];
+    // Combine the low and high bytes to get the final address
+    uint16_t final_addr = low_byte | (high_byte << 8);
+
+    // Fetch the value at the final address
+    uint8_t value = state->memory[final_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe4(State6502* state) {
+    // Opccode 0xE4: CPX - Compare X Register Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
+    fprintf(stdout, "Executing opcode 0xE4: CPX\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[addr];
+
+    // Perform the CPX operation
+    uint16_t result = state->x - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->x >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe5(State6502* state) {
+    // Opccode 0xE5: SBC - Subtract with Carry Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xE5: SBC\n");
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe6(State6502* state) {
+    // Opccode 0xE6: INC - Increment Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xE6: INC\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe8(State6502* state) {
+    // Opccode 0xE8: INX - Increment X Register
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INX
+    fprintf(stdout, "Executing opcode 0xE8: INX\n");
+
+    // Increment the X register
+    state->x++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (state->x == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (state->x & 0x80) ? 0x01 : 0x00;
+}
+
+static void execute_0xe9(State6502* state) {
+    // Opccode 0xE9: SBC - Subtract with Carry Immediate
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xE9: SBC\n");
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xea(State6502* state) {
+    // Opccode 0xEA: NOP - No Operation
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
+    fprintf(stdout, "Executing opcode 0xEA: NOP\n");
+
+    // No operation is performed
+}
+
+static void execute_0xec(State6502* state) {
+    // Opccode 0xEC: CPX - Compare X Register Absolute
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
+    fprintf(stdout, "Executing opcode 0xEC: CPX\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[base_addr];
+
+    // Perform the CPX operation
+    uint16_t result = state->x - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->x >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+
+static void execute_0xed(State6502* state) {
+    // Opccode 0xED: SBC - Subtract with Carry Absolute
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xED: SBC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[base_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xee(State6502* state) {
+    // Opccode 0xEE: INC - Increment Absolute
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xEE: INC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[base_addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[base_addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xf0(State6502* state) {
+    // Opccode 0xF0: BEQ - Branch if Equal
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#BEQ
+    fprintf(stdout, "Executing opcode 0xF0: BEQ\n");
+
+    // Fetch the offset for the next byte
+    int8_t offset = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Check if the zero flag (Z) is set
+    if (state->flgs->zro_flag == 0x01) {
+        // Update the program counter with the offset
+        state->pc += offset;
+    }
+}
+
+static void execute_0xf1(State6502* state) {
+    // Opccode 0xF1: SBC - Subtract with Carry Indirect Y
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xF1: SBC\n");
+
+    // Fetch the base address for the next byte
+    uint16_t base_addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Fetch the low byte of the base address
+    uint16_t low_byte = state->memory[base_addr];
+    // Fetch the high byte of the base address
+    uint16_t high_byte = state->memory[base_addr + 1];
+    // Combine the low and high bytes to get the final address
+    uint16_t final_addr = low_byte | (high_byte << 8);
+
+    // Fetch the value at the final address
+    uint8_t value = state->memory[final_addr + state->y];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xf5(State6502* state) {
+    // Opccode 0xF5: SBC - Subtract with Carry Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xF5: SBC\n");
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+
+static void execute_0xf6(State6502* state) {
+    // Opccode 0xF6: INC - Increment Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xF6: INC\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xf8(State6502* state) {
+    // Opccode 0xF8: SED - Set Decimal Flag
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SED
+    fprintf(stdout, "Executing opcode 0xF8: SED\n");
+
+    // Set the decimal mode flag
+    state->flgs->dec_flag = 0x01;
+}
+
+static void execute_0xf9(State6502* state) {
+    // Opccode 0xF9: SBC - Subtract with Carry Absolute Y
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xF9: SBC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->y) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xfa(State6502* state) {
+    // Opccode 0xFA: NOP - No Operation
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
+    fprintf(stdout, "Executing opcode 0xFA: NOP\n");
+
+    // No operation is performed
+}
+
+static void execute_0xfd(State6502* state) {
+    // Opccode 0xFD: SBC - Subtract with Carry Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xFD: SBC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xfe(State6502* state) {
+    // Opccode 0xFE: INC - Increment Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xFE: INC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[effective_addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[effective_addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
 // ================== end of opcode functions ===============================
 
 int Emulate(State6502* state) {
@@ -2963,31 +3515,80 @@ int Emulate(State6502* state) {
             break;
 
         // Abraham implementation
-        case 0xd5: printf("Not yet implemented\n"); break;
-        case 0xd6: printf("Not yet implemented\n"); break;
-        case 0xd8: printf("Not yet implemented\n"); break;
-        case 0xd9: printf("Not yet implemented\n"); break;
-        case 0xdd: printf("Not yet implemented\n"); break;
-        case 0xde: printf("Not yet implemented\n"); break;
-        case 0xe0: printf("Not yet implemented\n"); break;
-        case 0xe1: printf("Not yet implemented\n"); break;
-        case 0xe4: printf("Not yet implemented\n"); break;
-        case 0xe5: printf("Not yet implemented\n"); break;
-        case 0xe6: printf("Not yet implemented\n"); break;
-        case 0xe8: printf("Not yet implemented\n"); break;
-        case 0xe9: printf("Not yet implemented\n"); break;
-        case 0xea: printf("Not yet implemented\n"); break;
-        case 0xec: printf("Not yet implemented\n"); break;
-        case 0xed: printf("Not yet implemented\n"); break;
-        case 0xee: printf("Not yet implemented\n"); break;
-        case 0xf0: printf("Not yet implemented\n"); break;
-        case 0xf1: printf("Not yet implemented\n"); break;
-        case 0xf5: printf("Not yet implemented\n"); break;
-        case 0xf6: printf("Not yet implemented\n"); break;
-        case 0xf8: printf("Not yet implemented\n"); break;
-        case 0xf9: printf("Not yet implemented\n"); break;
-        case 0xfd: printf("Not yet implemented\n"); break;
-        case 0xfe: printf("Not yet implemented\n"); break;
+        case 0xd5:
+            execute_0xd5(state); 
+            break;
+        case 0xd6: 
+            execute_0xd6(state); 
+            break;
+        case 0xd8:
+            execute_0xd8(state); 
+            break;
+        case 0xd9: 
+            execute_0xd9(state);
+            break;
+        case 0xdd:
+            execute_0xdd(state);
+            break;
+        case 0xde:
+            execute_0xde(state); 
+            break;
+        case 0xe0:
+            execute_0xe0(state); break;
+        case 0xe1:
+            execute_0xe1(state);
+            break;
+        case 0xe4:
+            execute_0xe4(state); 
+            break;
+        case 0xe5:
+            execute_0xe5(state);
+            break;
+        case 0xe6:
+            execute_0xe6(state); 
+            break;
+        case 0xe8:
+            execute_0xe8(state);
+            break;
+        case 0xe9:
+            execute_0xe9(state);
+            break;
+        case 0xea:
+            execute_0xea(state);
+            break;
+        case 0xec:
+            execute_0xec(state);
+            break;
+        case 0xed:
+            execute_0xed(state);
+            break;
+        case 0xee:
+            execute_0xee(state);
+            break;
+        case 0xf0:
+            execute_0xf0(state);
+            break;
+        case 0xf1:
+            execute_0xf1(state);
+            break;
+        case 0xf5:
+            execute_0xf5(state);
+            break;
+        case 0xf6:
+            execute_0xf6(state);
+            break;
+        case 0xf8:
+            execute_0xf8(state);
+            break;
+        case 0xf9:
+            execute_0xf9(state);
+            break;
+        case 0xfd:
+            execute_0xfd(state);
+            break;
+        case 0xfe:
+            execute_0xfe(state);
+            break;
         default: printf("Invalid opcode: %02x\n", *opcode); break;
     }
 	
