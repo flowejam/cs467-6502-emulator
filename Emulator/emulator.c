@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 
+
 // TODO: let's consider adding/extern-ing some of the structs & helper functions to a 
 // header file to enable having tests in a separate file. 
 
@@ -26,6 +27,8 @@ typedef struct Flags {
 	// negative flag
 	uint8_t neg_flag;
 } Flags;
+
+
 
 typedef struct State6502 {
     uint8_t a;
@@ -61,33 +64,9 @@ typedef struct State6502 {
 	bool exit_prog;
 } State6502;
 
+
+
 // ================== helper functions ======================================
-
-
-/*
- * Does not attempt to handle invalid results.
- * This helper function takes a raw byte containing a signed integer value, 
- * determines if the value is negative or positive, and applies the offset to 
- * to the 16 bit value accordingly. 
- */
-uint16_t apply_signed_offset_in_unsigned_char(uint16_t val, unsigned char offset) {
-	// TODO: consider adding error handling. E.g., what happens if there is 
-	// integer overflow or underflow? Should it only jump to zero if there is 
-	// underflow? Needs research.
-	
-	// Used for branches.
-    uint16_t res = val;                                                        
-                                                                               
-    if ( (offset & 0x80) == 0x80) {                                            
-		// two's complement
-        unsigned char new_offset = (~offset + 1);                              
-        res -= new_offset;                                                     
-    } else {                                                                   
-        res += offset;                                                         
-    }                                                                          
-                                                                               
-    return res;                                                                
-}       
 
 /*
  * This helper function is used before pushing the processor state register
@@ -110,23 +89,8 @@ static void update_processor_status(State6502* state) {
 }
 
 /*
- * This helper function is used after popping the processor state register
- * from the stack (e.g.: the PLP instruction). It updates all of the flags 
- * using the value in the processor_status register.
- * Don't use this helper for any other purpose.
- */
-static void update_flags_from_processor_status(State6502* state) {
-	state->flgs->crry_flag = (state->processor_status & 0x01) == 0x01 ? 1 : 0;
-	state->flgs->zro_flag = (state->processor_status & 0x02) == 0x02 ? 1 : 0;
-	state->flgs->inter_disable_flag = (state->processor_status & 0x04) == 0x04 ? 1 : 0;
-	state->flgs->dec_flag = (state->processor_status & 0x08) == 0x08 ? 1 : 0;
-	state->flgs->brk_flag = (state->processor_status & 0x10) == 0x10 ? 1 : 0;
-	state->flgs->of_flag = (state->processor_status & 0x40) == 0x40 ? 1 : 0;
-	state->flgs->neg_flag = (state->processor_status & 0x80) == 0x80 ? 1 : 0;
-}
-
-/*
- * Assumes the MSB is pushed first, so that the LSB is popped first. 
+ * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
+ * stored in the stack will then be in little endian order.
  * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only push a word (16 bits) at a time, even
@@ -152,7 +116,8 @@ static int push_stack(State6502* state, int size, unsigned char* byte_arr) {
 }
 
 /*
- * Assumes the MSB is pushed first, so that the LSB is popped first. 
+ * Assumes the MSB is pushed first, so that the LSB is popped first. The bytes
+ * stored in the stack will then be in little endian order.
  * This is confirmed in https://en.wikipedia.org/wiki/Interrupts_in_65xx_processors.
  * 'size' argument should always be 2:
  * by default, we should only pop a word (16 bits) at a time, even
@@ -175,6 +140,7 @@ static int pop_stack(State6502* state, int size, unsigned char* byte_arr) {
 	state->sp = stack_addr & 0x00FF;
 	return 0;
 }
+
 // ================== end of helper functions ===============================
 
 
@@ -231,8 +197,6 @@ static void execute_0x00(State6502* state) {
 }
 
 static void execute_0x01(State6502* state) {
-	// indirect addressing -> using an address to get another address, and
-	// retrieving the data from that address.
 	fprintf(stdout, "Executing opcode 0x01: ORA - (indirect, X)\n");
 	state->pc++;
 	unsigned char zero_page_addr = state->memory[state->pc];
@@ -251,12 +215,15 @@ static void execute_0x01(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
 
 	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
 }
-
 static void execute_0x05(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x05: ORA - zero page\n");
 	state->pc++;
@@ -267,10 +234,14 @@ static void execute_0x05(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
 
 	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
+	}
 }
 
 static void execute_0x06(State6502* state) {
@@ -289,9 +260,9 @@ static void execute_0x06(State6502* state) {
 	// applied to its operand is zero, not (as it states in the guide) the 
 	// accumulator. 
 	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
-
-	state->flgs->neg_flag = (op_result & 0x80) ? 1 : 0;
+	if (op_result == 0x00) {
+		state->flgs->zro_flag = 0x01;
+	}
 }
 
 static void execute_0x08(State6502* state) {
@@ -308,6 +279,7 @@ static void execute_0x08(State6502* state) {
 }
 
 static void execute_0x09(State6502* state) {
+	// TODO
 	fprintf(stdout, "Executing opcode 0x09: ORA - Immediate\n");
 	state->pc++;
 	unsigned char byte_to_or = state->memory[state->pc];
@@ -316,890 +288,19 @@ static void execute_0x09(State6502* state) {
 	state->a |= byte_to_or;
 
 	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
+	if (state->a == 0x00) {
+		state->flgs->zro_flag = 1;
+	}
 
 	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x0a(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x0a: ASL - Accumulator\n");
-	unsigned char op_result = (state->a << 1);
-	uint8_t old_bit7 = (state->a & 0x80) == 0x80 ? 0x01 : 0x00;
-	state->a = op_result;
-
-	state->flgs->crry_flag = old_bit7;
-	
-	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
-
-	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x0d(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x0d: ORA - Absolute\n");
-	++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-
-	unsigned char byte_to_or = state->memory[addr];
-
-	// inclusive OR on accumulator contents.
-	state->a |= byte_to_or;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x0e(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x0e: ASL - Absolute\n");
-	++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-
-	unsigned char selected_byte = state->memory[addr];
-	unsigned char op_result = (selected_byte << 1);
-	uint8_t old_bit7 = (selected_byte & 0x80) == 0x80 ? 0x01 : 0x00;
-	state->memory[addr] = op_result;
-
-	state->flgs->crry_flag = old_bit7;
-	
-	// The author of the guide here (https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL)
-	// indicated that the zero flag should be set if the result of the instruction 
-	// applied to its operand is zero, not (as it states in the guide) the 
-	// accumulator. 
-	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
-
-	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x10(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x10: BPL - Relative\n");
-	++state->pc;
-	unsigned char offset = state->memory[state->pc];
-	if (state->flgs->neg_flag == 0x00) {
-		uint16_t new_pc = apply_signed_offset_in_unsigned_char(state->pc, offset);
-		state->pc = new_pc;
+	if ((state->a & 0x80) == 0x80) {
+		state->flgs->neg_flag = 1;
 	}
 }
 
-static void execute_0x11(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x11: ORA - (Indirect), Y\n");
-	state->pc++;
-	unsigned char addr_of_addr = state->memory[state->pc];
-	unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]}; 
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
-	addr += state->y;
-
-	unsigned char byte_to_or = state->memory[addr];
-
-	// inclusive OR on accumulator contents.
-	state->a |= byte_to_or;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x15(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x15: ORA - Zero Page, X\n");
-	state->pc++;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char byte_to_or = state->memory[zero_page_addr];
-
-	// inclusive OR on accumulator contents.
-	state->a |= byte_to_or;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x16(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x16: ASL - Zero Page, X\n");
-	state->pc++;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char selected_byte = state->memory[zero_page_addr];
-	unsigned char op_result = (selected_byte << 1);
-	uint8_t old_bit7 = (selected_byte & 0x80) == 0x80 ? 0x01 : 0x00;
-	state->memory[zero_page_addr] = op_result;
-
-	state->flgs->crry_flag = old_bit7;
-	
-	// The author of the guide here (https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL)
-	// indicated that the zero flag should be set if the result of the instruction 
-	// applied to its operand is zero, not (as it states in the guide) the 
-	// accumulator. 
-	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
-	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x18(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x18: CLC - Implied\n");
-	state->flgs->crry_flag = 0x00;
-}
-
-static void execute_0x19(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x19: ORA - Absolute, Y\n");
-	++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-	addr += state->y;
-
-	unsigned char byte_to_or = state->memory[addr];
-
-	// inclusive OR on accumulator contents.
-	state->a |= byte_to_or;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x1d(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x1d: ORA - Absolute, X\n");
-	++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-	addr += state->x;
-
-	unsigned char byte_to_or = state->memory[addr];
-
-	// inclusive OR on accumulator contents.
-	state->a |= byte_to_or;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x1e(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x1e: ASL - Absolute, X\n");
-	++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-	addr += state->x;
-
-	unsigned char selected_byte = state->memory[addr];
-	unsigned char op_result = (selected_byte << 1);
-	uint8_t old_bit7 = (selected_byte & 0x80) == 0x80 ? 0x01 : 0x00;
-	state->memory[addr] = op_result;
-
-	state->flgs->crry_flag = old_bit7;
-	
-	// The author of the guide here (https://www.nesdev.org/obelisk-6502-guide/reference.html#ASL)
-	// indicated that the zero flag should be set if the result of the instruction 
-	// applied to its operand is zero, not (as it states in the guide) the 
-	// accumulator. 
-	// See the author's comment here: http://forum.6502.org/viewtopic.php?f=12&t=5351
-	state->flgs->zro_flag = (op_result == 0x00) ? 1 : 0;
-
-	state->flgs->neg_flag = ((op_result & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x20(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x20: JSR - Absolute\n");
-	// The address of the next instruction (pc + 3) - 1 is pushed to the stack.
-	uint16_t saved_addr = state->pc + 3 - 1;
-	int size = 2;
-	unsigned char bytes[] = {(saved_addr >> 8), (saved_addr & 0xFF)};
-	int push_result = push_stack(state, size, bytes);
-	if (push_result < 0) {
-		// error in call to push_stack
-		return;
-	}
-
-	++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-	uint16_t addr = (byte2 << 8) | byte1;
-
-	// assumes an increment will occur after this instruction.
-	state->pc = addr - 1;
-}
-
-static void execute_0x21(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x21: AND - (Indirect, X)\n");
-	++state->pc;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	uint16_t addr_of_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char addr_bytes[] = {state->memory[addr_of_addr],state->memory[++addr_of_addr]};
-	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
-	unsigned char byte_to_and = state->memory[addr];
-
-	state->a &= byte_to_and;
-
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x24(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x24: BIT - Zero Page\n");
-	++state->pc;
-	unsigned char zero_addr = state->memory[state->pc];
-	unsigned char zero_addr_byte = state->memory[zero_addr];
-	uint8_t bit_res = state->a & zero_addr_byte;
-
-	state->flgs->neg_flag = (zero_addr_byte & 0x80) == 0x80 ? 1 : 0;
-	state->flgs->of_flag = (zero_addr_byte & 0x40) == 0x40 ? 1 : 0;
-	state->flgs->zro_flag = bit_res == 0x00 ? 1 : 0;
-}
-
-static void execute_0x25(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x25: AND - Zero Page\n");
-	++state->pc;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	unsigned char byte_to_and = state->memory[zero_page_addr];
-
-	state->a &= byte_to_and;
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x26(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x26: ROL - Zero Page\n");
-	++state->pc;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	unsigned char byte_to_rotate = state->memory[zero_page_addr];
-	uint8_t old_bit7 = (byte_to_rotate & 0x80) == 0x80 ? 1 : 0;
-	uint8_t old_bit6 = (byte_to_rotate & 0x40) == 0x40 ? 1 : 0;
-	unsigned char op_result = (byte_to_rotate << 1) | state->flgs->crry_flag;
-	state->flgs->crry_flag = old_bit7;
-	state->flgs->neg_flag = old_bit6;
-	state->flgs->zro_flag = op_result == 0x00 ? 1 : 0;
-	state->memory[zero_page_addr] = op_result;
-}
-
-static void execute_0x28(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x28: PLP - Implied\n");
-	// popped_bytes: {LSB, MSB};
-	unsigned char popped_bytes[2] = {0};
-
-	int pop_result = pop_stack(state, 2, popped_bytes);
-	if (pop_result < 0) {
-		// error in call to pop_stack
-		return;
-	}
-
-	// Assumes the processor_status flag was pushed as a 16-bit value
-	state->processor_status = popped_bytes[0];
-	update_flags_from_processor_status(state);
-}
-
-static void execute_0x29(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x29: AND - Immediate\n");
-	++state->pc;
-	unsigned char byte_to_and = state->memory[state->pc];
-
-	state->a &= byte_to_and;
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x2a(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x2a: ROL - Accumulator\n");
-	uint8_t old_bit7 = (state->a & 0x80) == 0x80 ? 1 : 0;
-	uint8_t old_bit6 = (state->a & 0x40) == 0x40 ? 1 : 0;
-	unsigned char op_result = (state->a << 1) | state->flgs->crry_flag;
-	state->flgs->crry_flag = old_bit7;
-	state->flgs->neg_flag = old_bit6;
-	state->flgs->zro_flag = op_result == 0x00 ? 1 : 0;
-	state->a = op_result;
-}
-
-// Chris' opcode functions/////////////////////////////////////////////////////////////////////////////
+// Chris' opcode functions
 static void execute_0x2c(State6502* state) {
-	fprintf(stdout, "Executing opcode 0x2c: BIT - Absolute\n");
-    // zero flag, set if the result if the AND is zero
-    // The mask pattern in A is ANDed with the value in memory to set or clear the zero flag, but the result
-    // is not kept. Bits 7 and 6 of the value from memory are copied into the N and V flags.
-    // BIT $NNNN
-    ++state->pc;
-    // byte1 has the lower memory address
-    unsigned char byte1 = state->memory[state->pc];
-    ++state->pc;
-    unsigned char byte2 = state->memory[state->pc];
-
-    // 16 bit addresses are stored in little endian order
-    uint16_t addr = (byte1 << 8) | byte2;
-
-    unsigned char byte_to_and = state->memory[addr];
-
-    // if the result of the ANDing is zero, set zero flag
-    if ((byte_to_and & state->a) == 0x00) {
-        state->flgs->zro_flag = 1;
-    }
-
-    // set overflow flag to bit 6 of the memory value
-    state->flgs->of_flag = (byte_to_and & 0x40) >> 7;
-
-    // set neg flag to bit 7 of the memory value
-    state->flgs->neg_flag = (byte_to_and & 0x80) >> 8;
-}
-
-static void execute_0x2d(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x2d: AND - Absolute\n");
-    ++state->pc;
-    // byte1 has the lower memory address
-    unsigned char byte1 = state->memory[state->pc];
-    ++state->pc;
-    unsigned char byte2 = state->memory[state->pc];
-
-    // 16 bit addresses are stored in little endian order
-    uint16_t addr = (byte1 << 8) | byte2;
-
-    unsigned char byte_to_and = state->memory[addr];
-
-    // AND the contents of register A
-    state->a &= byte_to_and;
-
-    // set zero flag if A is equal to zero
-    if (state->a == 0x00){
-        state->flgs->zro_flag = 1;
-    }
-
-    // set negative flag if bit 7 is set
-    if ((state->a & 0x80) == 0x80) {
-        state->flgs->neg_flag = 1;
-    }
-}
-
-static void execute_0x2e(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x2e: ROL - Absolute\n");
-    ++state->pc;
-    // byte1 has the lower memory address
-    unsigned char byte1 = state->memory[state->pc];
-    ++state->pc;
-    unsigned char byte2 = state->memory[state->pc];
-
-    // 16 bit addresses are stored in little endian order
-    uint16_t addr = (byte1 << 8) | byte2;
-
-    unsigned char target_byte = state->memory[addr];
-    unsigned char res = (target_byte << 1);
-    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
-
-    // fill bit 0 with current value of the carry flag
-    if (state->flgs->crry_flag == 1){
-        // this sets the 0th bit
-        res |= state->flgs->crry_flag;
-    } else {
-        // this clears the 0th bit
-        res &= ~(0x01);
-    }
-    state->memory[addr] = res;
-    state->flgs->crry_flag = old_bit7;
-
-    if (res == 0x00) {
-        state->flgs->zro_flag = 0x01;
-    }
-
-    if ((res & 0x80) == 0x80) {
-        state->flgs->neg_flag = 0x01;
-    }
-
-}
-
-static void execute_0x30(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x30: BMI - Relative\n");
-    // if the negative flag is set then add the relative
-    // displacement to the program counter to cause a branch
-    // to a new location
-    ++state->pc;
-    int8_t val = state->memory[state->pc];
-
-    // check if the negative flag is set
-    if (state->flgs->neg_flag == 0x01) {
-        state->pc += val;
-    }
-}
-
-static void execute_0x31(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x31: AND - Indirect Indexed\n");
-    // A logical AND is performed, bit by bit, on the accumulator contents
-    // using the contents of a byte of memory
-    // zero flag, set if (A or M) equals 0
-    // negative flag, set if bit 7 set
-    // this instructions uses 2 bytes, as follows: AND ($NN), Y
-    ++state->pc;
-    unsigned char addr_of_addr = state->memory[state->pc];
-    unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]};
-
-    // little endian
-    uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
-    addr += state->y;
-
-    unsigned char byte_to_and = state->memory[addr];
-
-    // modifying register a
-    state->a &= byte_to_and;
-
-    state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
-    state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
-}
-
-
-static void execute_0x35(State6502* state) {
-    // A logical AND is performed, bit by bit, on the accumulator contents
-    // using the contents of a byte of memory
-    // zero flag, set if (A or M) equals 0
-    // negative flag, set if bit 7 set
-    // used as follows: AND $NN, X
-    fprintf(stdout, "Executing opcode 0x35: AND - Zero Page, X\n");
-    ++state->pc;
-    unsigned char zero_page_addr = state->memory[state->pc];
-	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char byte_to_and = state->memory[zero_page_addr];
-
-	// modify register a
-	state->a &= byte_to_and;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
-}
-
-static void execute_0x36(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x36: ROL - Zero Page, X\n");
-    //Move each of the bits in either A or M one place to the left. Bit 0 is filled with
-    // the current value of the carry flag whilst the old bit 7 becomes the new carry
-    // flag value.
-    ++state->pc;
-    unsigned char zero_page_addr = state->memory[state->pc];
-	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char target_byte = state->memory[zero_page_addr];
-
-    // rotate left by 1
-    unsigned char res = (target_byte << 1);
-
-    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
-
-    // fill bit 0 with current value of the carry flag
-    if (state->flgs->crry_flag == 1){
-        // this sets the 0th bit
-        res |= state->flgs->crry_flag;
-    } else {
-        // this clears the 0th bit
-        res &= ~(0x01);
-    }
-
-    state->memory[zero_page_addr] = res;
-    state->flgs->crry_flag = old_bit7;
-
-    if (res == 0x00) {
-        state->flgs->zro_flag = 0x01;
-    }
-
-    if ((res & 0x80) == 0x80) {
-        state->flgs->neg_flag = 0x01;
-    }
-}
-
-static void execute_0x38(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x38: SEC - Implied\n");
-    // This is a 1 byte instruction code
-    // set the carry flag to 1
-    state->flgs->crry_flag = 0x01;
-}
-
-static void execute_0x39(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x39: AND - Absolute, Y\n");
-    // use as follows: AND $NNNN, Y
-    ++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-	addr += state->y;
-
-	unsigned char byte_to_and = state->memory[addr];
-
-	// modifying register a
-	state->a &= byte_to_and;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x3d(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x3d: AND - Absolute, X\n");
-    // use as follows: AND $NNNN, X
-    ++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-	addr += state->x;
-
-	unsigned char byte_to_and = state->memory[addr];
-
-	// modifying register a
-	state->a &= byte_to_and;
-
-	// set zero flag if applicable.
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	// set negative flag if bit 7 is set.
-	state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x3e(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x3e: ROL - Absolute, X\n");
-    // used as follows: ROL $NNNN, X
-    ++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-
-	unsigned char target_byte = state->memory[addr];
-
-    // rotate left by 1
-    unsigned char res = (target_byte << 1);
-
-    uint8_t old_bit7 = (target_byte & 0x80) == 0x80 ? 0x01 : 0x00;
-
-    // fill bit 0 with current value of the carry flag
-    if (state->flgs->crry_flag == 1){
-        // this sets the 0th bit
-        res |= state->flgs->crry_flag;
-    } else {
-        // this clears the 0th bit
-        res &= ~(0x01);
-    }
-
-    state->memory[addr] = res;
-    state->flgs->crry_flag = old_bit7;
-
-    if (res == 0x00) {
-        state->flgs->zro_flag = 0x01;
-    }
-
-    if ((res & 0x80) == 0x80) {
-        state->flgs->neg_flag = 0x01;
-    }
-}
-
-static void execute_0x40(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x40: RTI - Implied\n");
-    // RTI - Return from Interrupt
-    // This is a 1 byte instruction
-    // The RTI instruction is used at the end of an interrupt processing routine.
-    // It pulls the processor flags from the stack followed by the program counter.
-}
-
-static void execute_0x41(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x41: EOR - Indexed Indirect\n");
-    // EOR ($NN, X)
-    // An exclusive OR is performed, bit by bit, on the accumulator contents 
-    // using the contents of a byte of memory.
-    // instruction is 2 bytes
-    ++state->pc;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	uint16_t addr_of_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char addr_bytes[] = {state->memory[addr_of_addr],state->memory[++addr_of_addr]};
-	uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
-	unsigned char byte_to_eor = state->memory[addr];
-
-	state->a ^= byte_to_eor;
-
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-
-	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
-
-}
-
-static void execute_0x45(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x45: EOR - Zero Page\n");
-    // EOR $NN
-    ++state->pc;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	unsigned char byte_to_eor = state->memory[zero_page_addr];
-
-	state->a ^= byte_to_eor;
-
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x46(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x46: LSR - Zero Page\n");
-    // use as follows: LSR $NN
-    // Each of the bits in A or M is shift one place to the right.
-    // The bit that was in bit 0 is shifted into the carry flag. Bit 7 is set to zero.
-    ++state->pc;
-    unsigned char zero_page_addr = state->memory[state->pc];
-	unsigned char target_byte = state->memory[zero_page_addr];
-
-    // bit 0 is placed into the carry flag
-    state->flgs->crry_flag = (target_byte & 0x01) == 0x01 ? 1 : 0;
-
-    // perform shift to the right
-    uint8_t res = target_byte >> 1;
-
-    // set bit 7 to zero
-    res &= 0x7f;
-
-    // set zero flag if res is zero
-    state->flgs->zro_flag = (res == 0x00) ? 0x01 : 0x00;
-
-    // set negative flag if bit 7 of the result is set
-    // although the instructions state the above, it seems off since
-    // bit 7 will always be a zero
-    state->flgs->neg_flag = (res & 0x80) == 0x80 ? 0x01 : 0x00;
-
-    // store back the result in the specified address
-    state->memory[zero_page_addr] = res;
-	
-}
-
-static void execute_0x48(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x48: PHA - implied\n");
-    // pushes a copy of the accumulator on to the stack
-    int size = 2;
-    unsigned char accumulator_bytes[] = {0x00, state->a};
-    int push_result = push_stack(state, size, accumulator_bytes);
-    if (push_result < 0){
-        // error in call to push stack
-        return;
-    }
-}
-
-static void execute_0x49(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x49: EOR - immediate\n");
-    // EOR #$NN
-    // uses 2 bytes
-    // An exclusive OR is performed, bit by bit, on the accumulator contents
-    // using the contents of a byte of memory.
-    ++state->pc;
-    unsigned char byte_to_eor = state->memory[state->pc];
-
-	state->a ^= byte_to_eor;
-
-    state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x4a(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x4a: LSR A - Accumulator\n");
-    // uses only 1 byte
-    // Each of the bits in A or M is shift one place to the right.
-    // The bit that was in bit 0 is shifted into the carry flag. Bit 7 is set to zero.
-    
-    unsigned char op_result = (state->a >> 1);
-
-    // bit 0 is placed into the carry flag
-    state->flgs->crry_flag = (state->a & 0x01) == 0x01 ? 1 : 0;
-
-    // set bit 7 to zero
-    op_result &= 0x7f;
-
-    // set zero flag if res is zero
-    state->flgs->zro_flag = (op_result == 0x00) ? 0x01 : 0x00;
-
-    // set negative flag if bit 7 of the result is set
-    // although the instructions state the above, it seems off since
-    // bit 7 will always be a zero
-    state->flgs->neg_flag = (op_result & 0x80) == 0x80 ? 0x01 : 0x00;
-
-    // store back the result to the accumulator
-    state->a = op_result;
-}
-
-static void execute_0x4c(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x4c: JMP - Absolute\n");
-    // use as follows: JMP $NNNN
-    // instruction is 3 bytes
-    // sets the program counter to the address specified by the operand.
-    ++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-
-    // subtract by 1 because the emulate function increments pc by 1
-    // after instruction execution
-	state->pc = addr - 1;
-}
-
-static void execute_0x4d(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x4d: EOR - Absolute\n");
-    ++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-
-    unsigned char byte_to_eor = state->memory[addr];
-
-    state->a ^= byte_to_eor;
-
-	state->flgs->zro_flag = (state->a == 0x00) ? 1 : 0;
-	state->flgs->neg_flag = ( (state->a & 0x80) == 0x80) ? 1 : 0;
-}
-
-static void execute_0x4e(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x4e: LSR - Absolute\n");
-    ++state->pc;
-	unsigned char byte1 = state->memory[state->pc];
-	++state->pc;
-	unsigned char byte2 = state->memory[state->pc];
-
-	// 16 bit addresses are stored in little endian order
-	uint16_t addr = (byte2 << 8) | byte1;
-
-    unsigned char target_byte = state->memory[addr];
-
-    // bit 0 is placed into the carry flag
-    state->flgs->crry_flag = (target_byte & 0x01) == 0x01 ? 1 : 0;
-
-    // perform shift to the right
-    uint8_t res = target_byte >> 1;
-
-    // set bit 7 to zero
-    res &= 0x7f;
-
-    // set zero flag if res is zero
-    state->flgs->zro_flag = (res == 0x00) ? 0x01 : 0x00;
-
-    // set negative flag if bit 7 of the result is set
-    // although the instructions state the above, it seems off since
-    // bit 7 will always be a zero
-    state->flgs->neg_flag = (res & 0x80) == 0x80 ? 0x01 : 0x00;
-
-    // store back the result in the specified address
-    state->memory[addr] = res;
-}
-
-static void execute_0x50(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x50: BVC - Relative\n");
-    // BVC $NN
-    ++state->pc;
-    // If the overflow flag is clear then add the relative displacement to the
-    // program counter to cause a branch to a new location.
-    int8_t value = state->memory[state->pc];
-
-    // if flag is clear, then branch out
-    if (state->flgs->of_flag == 0x00){
-        // subtract 1 because pc is incremented in the emulate function
-        state->pc += (value - 1);
-    }
-}
-
-static void execute_0x51(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x51: EOR - Indirect Indexed\n");
-    // EOR ($NN), Y
-    ++state->pc;
-    unsigned char addr_of_addr = state->memory[state->pc];
-    unsigned char addr_bytes[] = {state->memory[addr_of_addr], state->memory[++addr_of_addr]};
-
-    // little endian
-    uint16_t addr = (addr_bytes[1] << 8) | addr_bytes[0];
-    addr += state->y;
-
-    unsigned char byte_to_eor = state->memory[addr];
-
-    // modifying register a
-    state->a ^= byte_to_eor;
-
-    state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
-    state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
-}
-
-static void execute_0x55(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x55: EOR - Zero Page, X\n");
-    // EOR $NN, X
-    state->pc++;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char byte_to_eor = state->memory[zero_page_addr];
-
-    // modifying register a
-    state->a ^= byte_to_eor;
-
-    state->flgs->zro_flag = (state->a == 0x00) ? 0x01 : 0x00;
-    state->flgs->neg_flag = ((state->a & 0x80) == 0x80) ? 0x01 : 0x00;
-}
-
-static void execute_0x56(State6502* state) {
-    fprintf(stdout, "Executing opcode 0x56: LSR - Zero Page, X\n");
-    state->pc++;
-	unsigned char zero_page_addr = state->memory[state->pc];
-	zero_page_addr = (zero_page_addr + state->x) & 0xFF;
-	unsigned char target_byte = state->memory[zero_page_addr];
-
-    // bit 0 is placed into the carry flag
-    state->flgs->crry_flag = (target_byte & 0x01) == 0x01 ? 1 : 0;
-
-    // perform shift to the right
-    uint8_t res = target_byte >> 1;
-
-    // set bit 7 to zero
-    res &= 0x7f;
-
-    // set zero flag if res is zero
-    state->flgs->zro_flag = (res == 0x00) ? 0x01 : 0x00;
-
-    // set negative flag if bit 7 of the result is set
-    // although the instructions state the above, it seems off since
-    // bit 7 will always be a zero
-    state->flgs->neg_flag = (res & 0x80) == 0x80 ? 0x01 : 0x00;
-
-    // store back the result in the specified address
-    state->memory[zero_page_addr] = res;
+	// TODO
 }
 
 // Abraham opcode functions
@@ -1208,8 +309,6 @@ static void execute_0x58(State6502* state) {
     fprintf(stdout, "Executing opcode 0x58: CLI\n");
     // clearing the interrupt disable flag
     state->flgs->inter_disable_flag = 0x00;
-    // advance the program counter to the next instruction
-    state->pc++;
 
 }
 
@@ -1224,7 +323,7 @@ static void execute_0x59(State6502* state) {
     state->pc += 2;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->y;
+    uint16_t effective_addr = (base_addr + state->y) & 0xFFFF;
 
     // Perform the EOR operation
     uint8_t value = state->memory[effective_addr];
@@ -1236,8 +335,6 @@ static void execute_0x59(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 
 }
 
@@ -1252,7 +349,7 @@ static void execute_0x5d(State6502* state) {
     state->pc += 2;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->x;
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
 
     // Perform the EOR operation
     uint8_t value = state->memory[effective_addr];
@@ -1264,8 +361,6 @@ static void execute_0x5d(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 
 }
 
@@ -1280,7 +375,7 @@ static void execute_0x5e(State6502* state) {
     state->pc += 2;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->x;
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
 
     // Perform the LSR operation
     uint8_t value = state->memory[effective_addr];
@@ -1296,9 +391,6 @@ static void execute_0x5e(State6502* state) {
     state->memory[effective_addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
-
 }
 
 static void execute_0x60(State6502* state) {
@@ -1317,9 +409,6 @@ static void execute_0x60(State6502* state) {
     }
     state->pc = pc_bytes[0] | (pc_bytes[1] << 8);
 
-    // Increment the program counter to the next instruction
-    state->pc++;
-
 }
 
 static void execute_0x61(State6502* state) {
@@ -1332,7 +421,7 @@ static void execute_0x61(State6502* state) {
     state->pc++;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->x;
+    uint16_t effective_addr = (base_addr + state->x) & 0xFF;
 
     // Fetch the low byte of the effective address
     uint16_t low_byte = state->memory[effective_addr];
@@ -1358,8 +447,6 @@ static void execute_0x61(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x65(State6502* state) {
@@ -1385,8 +472,6 @@ static void execute_0x65(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x66(State6502* state) {
@@ -1414,8 +499,6 @@ static void execute_0x66(State6502* state) {
     state->memory[addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x68(State6502* state) {
@@ -1440,8 +523,6 @@ static void execute_0x68(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x69(State6502* state) {
@@ -1467,8 +548,6 @@ static void execute_0x69(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x6a(State6502* state) {
@@ -1489,8 +568,7 @@ static void execute_0x6a(State6502* state) {
     state->flgs->neg_flag = (state->a & 0x80) ? 0x01 : 0x00;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x6c(State6502* state) {
@@ -1503,7 +581,7 @@ static void execute_0x6c(State6502* state) {
     state->pc += 2;
 
     // Jump to the new address
-    state->pc = addr - 1;
+    state->pc = addr;
 
 }
 
@@ -1533,8 +611,6 @@ static void execute_0x6d(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x6e(State6502* state) {
@@ -1563,8 +639,7 @@ static void execute_0x6e(State6502* state) {
     state->memory[base_addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x70(State6502* state) {
@@ -1582,8 +657,6 @@ static void execute_0x70(State6502* state) {
         state->pc += value;
     }
 
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x71(State6502* state) {
@@ -1596,7 +669,7 @@ static void execute_0x71(State6502* state) {
     state->pc++;
 
     // Calculate the effective address
-    uint16_t effective_addr = base_addr + state->y;
+    uint16_t effective_addr = (base_addr + state->y) & 0xFF;
 
     // Fetch the low byte of the effective address
     uint16_t low_byte = state->memory[effective_addr];
@@ -1622,8 +695,6 @@ static void execute_0x71(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x75(State6502* state) {
@@ -1649,8 +720,6 @@ static void execute_0x75(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x76(State6502* state) {
@@ -1678,8 +747,7 @@ static void execute_0x76(State6502* state) {
     state->memory[addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x78(State6502* state) {
@@ -1689,8 +757,6 @@ static void execute_0x78(State6502* state) {
 
     // Set the interrupt disable flag
     state->flgs->inter_disable_flag = 0x01;
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x79(State6502* state) {
@@ -1722,8 +788,7 @@ static void execute_0x79(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x7d(State6502* state) {
@@ -1755,8 +820,7 @@ static void execute_0x7d(State6502* state) {
     state->a = result & 0xFF;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x7e(State6502* state) {
@@ -1788,8 +852,7 @@ static void execute_0x7e(State6502* state) {
     state->memory[effective_addr] = value;
     // Updating the processor status if needed
     update_processor_status(state);
-    // advance the program counter to the next instruction
-    state->pc++;
+
 }
 
 static void execute_0x81(State6502* state) {
@@ -1806,13 +869,19 @@ static void execute_0x81(State6502* state) {
 
     // Store the value in the accumulator at the effective address
     state->memory[effective_addr] = state->a;
-
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x84(State6502* state) {
-	// TODO
+    // Opccode 0x84: STY - Store Y Register Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#STY
+    fprintf(stdout, "Executing opcode 0x84: STY\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Store the value in the Y register at the address
+    state->memory[addr] = state->y;
 }
 
 static void execute_0x85(State6502* state) {
@@ -1827,8 +896,6 @@ static void execute_0x85(State6502* state) {
     // Store the value in the accumulator at the address
     state->memory[addr] = state->a;
 
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 
 static void execute_0x86(State6502* state) {
@@ -1843,10 +910,597 @@ static void execute_0x86(State6502* state) {
     // Store the value in the X register at the address
     state->memory[addr] = state->x;
 
-    // advance the program counter to the next instruction
-    state->pc++;
 }
 // end of Abraham's opcodes up to 0x86
+
+
+// Abraham remaining opcodes
+static void execute_0xd5(State6502* state) {
+    // Opccode 0xD5: CMP - Compare Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
+    fprintf(stdout, "Executing opcode 0xD5: CMP\n");
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the CMP operation
+    uint16_t result = state->a - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xd6(State6502* state) {
+    // Opccode 0xD6: DEC - Decrement Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC
+    fprintf(stdout, "Executing opcode 0xD6: DEC\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the DEC operation
+    uint8_t value = state->memory[addr];
+    value--;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xd8(State6502* state) {
+    // Opccode 0xD8: CLD - Clear Decimal Mode
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CLD
+    fprintf(stdout, "Executing opcode 0xD8: CLD\n");
+
+    // Clear the decimal mode flag
+    state->flgs->dec_flag = 0x00;
+}
+
+static void execute_0xd9(State6502* state) {
+    // Opccode 0xD9: CMP - Compare Absolute Y
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
+    fprintf(stdout, "Executing opcode 0xD9: CMP\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->y) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the CMP operation
+    uint16_t result = state->a - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xdd(State6502* state) {
+    // Opccode 0xDD: CMP - Compare Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CMP
+    fprintf(stdout, "Executing opcode 0xDD: CMP\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the CMP operation
+    uint16_t result = state->a - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xde(State6502* state) {
+    // Opccode 0xDE: DEC - Decrement Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#DEC
+    fprintf(stdout, "Executing opcode 0xDE: DEC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Perform the DEC operation
+    uint8_t value = state->memory[effective_addr];
+    value--;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[effective_addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe0(State6502* state) {
+    // Opccode 0xE0: CPX - Compare X Register Immediate
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
+    fprintf(stdout, "Executing opcode 0xE0: CPX\n");
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the CPX operation
+    uint16_t result = state->x - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->x >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe1(State6502* state) {
+    // Opccode 0xE1: SBC - Subtract with Carry Indirect X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xE1: SBC\n");
+
+    // Fetch the base address for the next byte
+    uint16_t base_addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Calculate the effective address
+    uint16_t effective_addr = base_addr + state->x;
+
+    // Fetch the low byte of the effective address
+    uint16_t low_byte = state->memory[effective_addr];
+    // Fetch the high byte of the effective address
+    uint16_t high_byte = state->memory[effective_addr + 1];
+    // Combine the low and high bytes to get the final address
+    uint16_t final_addr = low_byte | (high_byte << 8);
+
+    // Fetch the value at the final address
+    uint8_t value = state->memory[final_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe4(State6502* state) {
+    // Opccode 0xE4: CPX - Compare X Register Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
+    fprintf(stdout, "Executing opcode 0xE4: CPX\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[addr];
+
+    // Perform the CPX operation
+    uint16_t result = state->x - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->x >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe5(State6502* state) {
+    // Opccode 0xE5: SBC - Subtract with Carry Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xE5: SBC\n");
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe6(State6502* state) {
+    // Opccode 0xE6: INC - Increment Zero Page
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xE6: INC\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xe8(State6502* state) {
+    // Opccode 0xE8: INX - Increment X Register
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INX
+    fprintf(stdout, "Executing opcode 0xE8: INX\n");
+
+    // Increment the X register
+    state->x++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (state->x == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (state->x & 0x80) ? 0x01 : 0x00;
+}
+
+static void execute_0xe9(State6502* state) {
+    // Opccode 0xE9: SBC - Subtract with Carry Immediate
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xE9: SBC\n");
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xea(State6502* state) {
+    // Opccode 0xEA: NOP - No Operation
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
+    fprintf(stdout, "Executing opcode 0xEA: NOP\n");
+
+    // No operation is performed
+}
+
+static void execute_0xec(State6502* state) {
+    // Opccode 0xEC: CPX - Compare X Register Absolute
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#CPX
+    fprintf(stdout, "Executing opcode 0xEC: CPX\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Fetch the value to be compared
+    uint8_t value = state->memory[base_addr];
+
+    // Perform the CPX operation
+    uint16_t result = state->x - value;
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->x >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+
+static void execute_0xed(State6502* state) {
+    // Opccode 0xED: SBC - Subtract with Carry Absolute
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xED: SBC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[base_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xee(State6502* state) {
+    // Opccode 0xEE: INC - Increment Absolute
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xEE: INC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[base_addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[base_addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xf0(State6502* state) {
+    // Opccode 0xF0: BEQ - Branch if Equal
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#BEQ
+    fprintf(stdout, "Executing opcode 0xF0: BEQ\n");
+
+    // Fetch the offset for the next byte
+    int8_t offset = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Check if the zero flag (Z) is set
+    if (state->flgs->zro_flag == 0x01) {
+        // Update the program counter with the offset
+        state->pc += offset;
+    }
+}
+
+static void execute_0xf1(State6502* state) {
+    // Opccode 0xF1: SBC - Subtract with Carry Indirect Y
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xF1: SBC\n");
+
+    // Fetch the base address for the next byte
+    uint16_t base_addr = state->memory[state->pc + 1];
+    state->pc++;
+
+    // Fetch the low byte of the base address
+    uint16_t low_byte = state->memory[base_addr];
+    // Fetch the high byte of the base address
+    uint16_t high_byte = state->memory[base_addr + 1];
+    // Combine the low and high bytes to get the final address
+    uint16_t final_addr = low_byte | (high_byte << 8);
+
+    // Fetch the value at the final address
+    uint8_t value = state->memory[final_addr + state->y];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xf5(State6502* state) {
+    // Opccode 0xF5: SBC - Subtract with Carry Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xF5: SBC\n");
+
+    // Fetch the value to be subtracted
+    uint8_t value = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+
+static void execute_0xf6(State6502* state) {
+    // Opccode 0xF6: INC - Increment Zero Page X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xF6: INC\n");
+
+    // Fetch the address for the next byte
+    uint16_t addr = state->memory[state->pc + 1] + state->x;
+    state->pc++;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xf8(State6502* state) {
+    // Opccode 0xF8: SED - Set Decimal Flag
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SED
+    fprintf(stdout, "Executing opcode 0xF8: SED\n");
+
+    // Set the decimal mode flag
+    state->flgs->dec_flag = 0x01;
+}
+
+static void execute_0xf9(State6502* state) {
+    // Opccode 0xF9: SBC - Subtract with Carry Absolute Y
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xF9: SBC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->y) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xfa(State6502* state) {
+    // Opccode 0xFA: NOP - No Operation
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
+    fprintf(stdout, "Executing opcode 0xFA: NOP\n");
+
+    // No operation is performed
+}
+
+static void execute_0xfd(State6502* state) {
+    // Opccode 0xFD: SBC - Subtract with Carry Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#SBC
+    fprintf(stdout, "Executing opcode 0xFD: SBC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Fetch the value at the effective address
+    uint8_t value = state->memory[effective_addr];
+
+    // Perform the SBC operation
+    uint16_t result = state->a - value - (1 - state->flgs->crry_flag);
+    // Update the carry flag (C) based on the result
+    state->flgs->crry_flag = (state->a >= value) ? 0x01 : 0x00;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (result == 0) ? 0x01 : 0x00;
+    // Update the overflow flag (V) based on the result
+    state->flgs->of_flag = ( (state->a ^ result) & (value ^ result) & 0x80) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (result & 0x80) ? 0x01 : 0x00;
+    // Store the result in the accumulator
+    state->a = result & 0xFF;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+static void execute_0xfe(State6502* state) {
+    // Opccode 0xFE: INC - Increment Absolute X
+    // https://www.nesdev.org/obelisk-6502-guide/reference.html#INC
+    fprintf(stdout, "Executing opcode 0xFE: INC\n");
+
+    // Fetch the base address for the next two bytes
+    uint16_t base_addr = state->memory[state->pc + 1] | (state->memory[state->pc + 2] << 8);
+    state->pc += 2;
+
+    // Calculate the effective address
+    uint16_t effective_addr = (base_addr + state->x) & 0xFFFF;
+
+    // Perform the INC operation
+    uint8_t value = state->memory[effective_addr];
+    value++;
+    // Update the zero flag (Z) based on the result
+    state->flgs->zro_flag = (value == 0) ? 0x01 : 0x00;
+    // Update the negative flag (N) based on the most significant bit of the result
+    state->flgs->neg_flag = (value & 0x80) ? 0x01 : 0x00;
+    // Store the result back in memory
+    state->memory[effective_addr] = value;
+    // Updating the processor status if needed
+    update_processor_status(state);
+}
+
+
 
 // ================== end of opcode functions ===============================
 
@@ -1884,137 +1538,55 @@ int Emulate(State6502* state) {
 			execute_0x09(state);
 			break;
         case 0x0a: 
-			execute_0x0a(state);
+			printf("Not yet implemented\n"); 
 			break;
-        case 0x0d: 
-			execute_0x0d(state);
-			break;
-        case 0x0e: 
-			execute_0x0e(state);
-			break;
-        case 0x10: 
-			execute_0x10(state);
-			break;
-        case 0x11: 
-			execute_0x11(state);
-			break;
-        case 0x15: 
-			execute_0x15(state);
-			break;
-        case 0x16: 
-			execute_0x16(state);
-			break;
-        case 0x18: 
-			execute_0x18(state);
-			break;
-        case 0x19: 
-			execute_0x19(state);
-			break;
-        case 0x1d: 
-			execute_0x1d(state);
-			break;
-        case 0x1e: 
-			execute_0x1e(state);
-			break;
-        case 0x20: 
-			execute_0x20(state);
-			break;
-        case 0x21: 
-			execute_0x21(state);
-			break;
-        case 0x24: 
-			execute_0x24(state);
-			break;
-        case 0x25: 
-			execute_0x25(state);
-			break;
-        case 0x26: 
-			execute_0x26(state);
-			break;
-        case 0x28: 
-			execute_0x28(state);
-			break;
-        case 0x29: 
-			execute_0x29(state);
-			break;
-        case 0x2a: 
-			execute_0x2a(state);
-			break;
+        case 0x0d: printf("Not yet implemented\n"); break;
+        case 0x0e: printf("Not yet implemented\n"); break;
+        case 0x10: printf("Not yet implemented\n"); break;
+        case 0x11: printf("Not yet implemented\n"); break;
+        case 0x15: printf("Not yet implemented\n"); break;
+        case 0x16: printf("Not yet implemented\n"); break;
+        case 0x18: printf("Not yet implemented\n"); break;
+        case 0x19: printf("Not yet implemented\n"); break;
+        case 0x1d: printf("Not yet implemented\n"); break;
+        case 0x1e: printf("Not yet implemented\n"); break;
+        case 0x20: printf("Not yet implemented\n"); break;
+        case 0x21: printf("Not yet implemented\n"); break;
+        case 0x24: printf("Not yet implemented\n"); break;
+        case 0x25: printf("Not yet implemented\n"); break;
+        case 0x26: printf("Not yet implemented\n"); break;
+        case 0x28: printf("Not yet implemented\n"); break;
+        case 0x29: printf("Not yet implemented\n"); break;
+        case 0x2a: printf("Not yet implemented\n"); break;
 
         // Chris implementation
         case 0x2c:
             execute_0x2c(state);
             break;
-        case 0x2d:
-            execute_0x2d(state);
-            break;
-        case 0x2e:
-            execute_0x2e(state);
-            break;
-        case 0x30:
-            execute_0x30(state);
-            break;
-        case 0x31:
-            execute_0x31(state);
-            break;
-        case 0x35:
-            execute_0x35(state);
-            break;
-        case 0x36:
-            execute_0x36(state);
-            break;
-        case 0x38:
-            execute_0x38(state);
-            break;
-        case 0x39:
-            execute_0x39(state);
-            break;
-        case 0x3d:
-            execute_0x3d(state);
-            break;
-        case 0x3e:
-            execute_0x3e(state);
-            break;
+        case 0x2d: printf("Not yet implemented\n"); break;
+        case 0x2e: printf("Not yet implemented\n"); break;
+        case 0x30: printf("Not yet implemented\n"); break;
+        case 0x31: printf("Not yet implemented\n"); break;
+        case 0x35: printf("Not yet implemented\n"); break;
+        case 0x36: printf("Not yet implemented\n"); break;
+        case 0x38: printf("Not yet implemented\n"); break;
+        case 0x39: printf("Not yet implemented\n"); break;
+        case 0x3d: printf("Not yet implemented\n"); break;
+        case 0x3e: printf("Not yet implemented\n"); break;
         case 0x40: printf("Not yet implemented\n"); break;
-        case 0x41:
-            execute_0x41(state);
-            break;
-        case 0x45:
-            execute_0x45(state);
-            break;
-        case 0x46:
-            execute_0x46(state);
-            break;
-        case 0x48:
-            execute_0x48(state);
-            break;
-        case 0x49:
-            execute_0x49(state);
-            break;
-        case 0x4a:
-            execute_0x4a(state);
-            break;
-        case 0x4c:
-            execute_0x4c(state);
-            break;
-        case 0x4d:
-            execute_0x4d(state);
-            break;
-        case 0x4e:
-            execute_0x4e(state);
-            break;
-        case 0x50:
-            execute_0x50(state);
-            break;
-        case 0x51:
-            execute_0x51(state);
-            break;
-        case 0x55:
-            execute_0x55(state);
-            break;
-        case 0x56:
-            execute_0x56(state);
-            break;
+        case 0x41: printf("Not yet implemented\n"); break;
+        case 0x45: printf("Not yet implemented\n"); break;
+        case 0x46: printf("Not yet implemented\n"); break;
+        case 0x48: printf("Not yet implemented\n"); break;
+        case 0x49: printf("Not yet implemented\n"); break;
+        case 0x4a: printf("Not yet implemented\n"); break;
+        case 0x4c: printf("Not yet implemented\n"); break;
+        case 0x4d: printf("Not yet implemented\n"); break;
+        case 0x4e: printf("Not yet implemented\n"); break;
+        case 0x50: printf("Not yet implemented\n"); break;
+        case 0x51: printf("Not yet implemented\n"); break;
+        case 0x55: printf("Not yet implemented\n"); break;
+        case 0x56: printf("Not yet implemented\n"); break;
 
         // Abraham implementation
         case 0x58:
@@ -2149,31 +1721,80 @@ int Emulate(State6502* state) {
         case 0xd1: printf("Not yet implemented\n"); break;
 
         // Abraham implementation
-        case 0xd5: printf("Not yet implemented\n"); break;
-        case 0xd6: printf("Not yet implemented\n"); break;
-        case 0xd8: printf("Not yet implemented\n"); break;
-        case 0xd9: printf("Not yet implemented\n"); break;
-        case 0xdd: printf("Not yet implemented\n"); break;
-        case 0xde: printf("Not yet implemented\n"); break;
-        case 0xe0: printf("Not yet implemented\n"); break;
-        case 0xe1: printf("Not yet implemented\n"); break;
-        case 0xe4: printf("Not yet implemented\n"); break;
-        case 0xe5: printf("Not yet implemented\n"); break;
-        case 0xe6: printf("Not yet implemented\n"); break;
-        case 0xe8: printf("Not yet implemented\n"); break;
-        case 0xe9: printf("Not yet implemented\n"); break;
-        case 0xea: printf("Not yet implemented\n"); break;
-        case 0xec: printf("Not yet implemented\n"); break;
-        case 0xed: printf("Not yet implemented\n"); break;
-        case 0xee: printf("Not yet implemented\n"); break;
-        case 0xf0: printf("Not yet implemented\n"); break;
-        case 0xf1: printf("Not yet implemented\n"); break;
-        case 0xf5: printf("Not yet implemented\n"); break;
-        case 0xf6: printf("Not yet implemented\n"); break;
-        case 0xf8: printf("Not yet implemented\n"); break;
-        case 0xf9: printf("Not yet implemented\n"); break;
-        case 0xfd: printf("Not yet implemented\n"); break;
-        case 0xfe: printf("Not yet implemented\n"); break;
+        case 0xd5:
+            execute_0xd5(state); 
+            break;
+        case 0xd6: 
+            execute_0xd6(state); 
+            break;
+        case 0xd8:
+            execute_0xd8(state); 
+            break;
+        case 0xd9: 
+            execute_0xd9(state);
+            break;
+        case 0xdd:
+            execute_0xdd(state);
+            break;
+        case 0xde:
+            execute_0xde(state); 
+            break;
+        case 0xe0:
+            execute_0xe0(state); break;
+        case 0xe1:
+            execute_0xe1(state);
+            break;
+        case 0xe4:
+            execute_0xe4(state); 
+            break;
+        case 0xe5:
+            execute_0xe5(state);
+            break;
+        case 0xe6:
+            execute_0xe6(state); 
+            break;
+        case 0xe8:
+            execute_0xe8(state);
+            break;
+        case 0xe9:
+            execute_0xe9(state);
+            break;
+        case 0xea:
+            execute_0xea(state);
+            break;
+        case 0xec:
+            execute_0xec(state);
+            break;
+        case 0xed:
+            execute_0xed(state);
+            break;
+        case 0xee:
+            execute_0xee(state);
+            break;
+        case 0xf0:
+            execute_0xf0(state);
+            break;
+        case 0xf1:
+            execute_0xf1(state);
+            break;
+        case 0xf5:
+            execute_0xf5(state);
+            break;
+        case 0xf6:
+            execute_0xf6(state);
+            break;
+        case 0xf8:
+            execute_0xf8(state);
+            break;
+        case 0xf9:
+            execute_0xf9(state);
+            break;
+        case 0xfd:
+            execute_0xfd(state);
+            break;
+        case 0xfe:
+            execute_0xfe(state);
+            break;
         default: printf("Invalid opcode: %02x\n", *opcode); break;
     }
 	
@@ -2184,8 +1805,6 @@ int Emulate(State6502* state) {
 		state->exit_prog = true;
 	}
 
-	// Note that some instructions are adjusted for this increment, assuming
-	// it will always occur. E.g. JSR, JMP
 	// To get the opcode.
 	// PC shouldn't be modified before the instruction is executed so that
 	// the current value can be obtained/pushed to the stack etc. by the 
