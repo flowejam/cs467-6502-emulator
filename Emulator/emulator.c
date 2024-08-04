@@ -607,7 +607,15 @@ static void execute_0x26(State6502* state) {
 	unsigned char byte_to_rotate = state->memory[zero_page_addr];
 	uint8_t old_bit7 = (byte_to_rotate & 0x80) == 0x80 ? 1 : 0;
 	uint8_t old_bit6 = (byte_to_rotate & 0x40) == 0x40 ? 1 : 0;
-	unsigned char op_result = (byte_to_rotate << 1) | state->flgs->crry_flag;
+
+	unsigned char op_result = (byte_to_rotate << 1);
+	// set or clear bit 0 based on the value of the carry flag.
+	if (state->flgs->crry_flag == 0x01) {
+		op_result |= state->flgs->crry_flag;
+	} else {
+		op_result &= ~(0x01);
+	}
+
 	state->flgs->crry_flag = old_bit7;
 	state->flgs->neg_flag = old_bit6;
 	state->flgs->zro_flag = op_result == 0x00 ? 1 : 0;
@@ -644,12 +652,23 @@ static void execute_0x2a(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x2a: ROL - Accumulator\n");
 	uint8_t old_bit7 = (state->a & 0x80) == 0x80 ? 1 : 0;
 	uint8_t old_bit6 = (state->a & 0x40) == 0x40 ? 1 : 0;
-	unsigned char op_result = (state->a << 1) | state->flgs->crry_flag;
+
+	unsigned char op_result = (state->a << 1);
+	// set or clear bit 0 based on the value of the carry flag.
+	if (state->flgs->crry_flag == 0x01) {
+		op_result |= state->flgs->crry_flag;
+	} else {
+		op_result &= ~(0x01);
+	}
+
 	state->flgs->crry_flag = old_bit7;
 	state->flgs->neg_flag = old_bit6;
 	state->flgs->zro_flag = op_result == 0x00 ? 1 : 0;
 	state->a = op_result;
 }
+
+//=============================================================================
+// James opcode functions
 
 static void execute_0x86(State6502* state) {
 	fprintf(stdout, "Executing opcode 0x86: STX - Zero Page\n");
@@ -917,7 +936,6 @@ static void execute_0x2c(State6502* state) {
     ++state->pc;
     unsigned char byte2 = state->memory[state->pc];
 
-	// TODO: correct this, since LSB is byte1  
     // 16 bit addresses are stored in little endian order
     uint16_t addr = (byte2 << 8) | byte1;
 
@@ -1166,13 +1184,11 @@ static void execute_0x3e(State6502* state) {
     state->memory[addr] = res;
     state->flgs->crry_flag = old_bit7;
 
-    if (res == 0x00) {
-        state->flgs->zro_flag = 0x01;
-    }
+	// set zero flag if applicable.
+	state->flgs->zro_flag = (res == 0x00) ? 1 : 0;
 
-    if ((res & 0x80) == 0x80) {
-        state->flgs->neg_flag = 0x01;
-    }
+	// set negative flag if bit 7 is set.
+	state->flgs->neg_flag = ((res & 0x80) == 0x80) ? 1 : 0;
 }
 
 static void execute_0x40(State6502* state) {
@@ -3090,6 +3106,13 @@ int main(int argc, char* argv[]) {
 	// The stack pointer holds the lower 8 bits of the next free location on 
 	// the stack. This works because the stack is 256 bytes.
 	state_cpu.sp = 0x01FF & 0x00FF;
+
+	// Initialization code on the NES has a loop to wait for at least 30,000 
+	// cycles to pass. This is related to the PPU and the memory location $2002 
+	// is used for this. Since we are only emulating the CPU, we will set this
+	// location to 0x80 to avoid an infinite loop.  
+	state_cpu.memory[0x2002] = 0x80;
+	
 	state_cpu.a = 0;
 	state_cpu.x = 0;
 	state_cpu.y = 0;
