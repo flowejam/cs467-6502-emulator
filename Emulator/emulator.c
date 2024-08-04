@@ -1689,6 +1689,7 @@ static void execute_0x66(State6502* state) {
     // Updating the processor status if needed
     update_processor_status(state);
 
+}
 
 static void execute_0x68(State6502* state) {
     // Opccode 0x68: PLA - Pull Accumulator
