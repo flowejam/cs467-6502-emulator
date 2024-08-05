@@ -2088,19 +2088,6 @@ static void execute_0x85(State6502* state) {
 
 }
 
-static void execute_0x86(State6502* state) {
-    // Opccode 0x86: STX - Store X Register Zero Page
-    // https://www.nesdev.org/obelisk-6502-guide/reference.html#STX
-    fprintf(stdout, "Executing opcode 0x86: STX\n");
-
-    // Fetch the address for the next byte
-    uint16_t addr = state->memory[state->pc + 1];
-    state->pc++;
-
-    // Store the value in the X register at the address
-    state->memory[addr] = state->x;
-
-}
 
 // Chris remaining opcode implementation /////////xyz//////////////////////////////////////////////////////////////////////
 static void execute_0xad(State6502* state) {
@@ -3046,13 +3033,13 @@ static void execute_0xf9(State6502* state) {
     update_processor_status(state);
 }
 
-static void execute_0xfa(State6502* state) {
-    // Opccode 0xFA: NOP - No Operation
-    // https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
-    fprintf(stdout, "Executing opcode 0xFA: NOP\n");
-
-    // No operation is performed
-}
+//static void execute_0xfa(State6502* state) {
+//    // Opccode 0xFA: NOP - No Operation
+//    // https://www.nesdev.org/obelisk-6502-guide/reference.html#NOP
+//    fprintf(stdout, "Executing opcode 0xFA: NOP\n");
+//
+//    // No operation is performed
+//}
 
 static void execute_0xfd(State6502* state) {
     // Opccode 0xFD: SBC - Subtract with Carry Absolute X
